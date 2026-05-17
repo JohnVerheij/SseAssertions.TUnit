@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Updated `CONVENTIONS.md` to v0.7 (this repo bootstrapped at v0.5; this is its first cumulative update).
+- Added a per-package strict-scope policy section to `CONVENTIONS.md` with explicit scope statements for all six family packages.
+- Added a core+adapter packaging rule section to `CONVENTIONS.md`: five of six family packages ship core+adapter; `JsonAssertions.TUnit` is the sole single-package member.
+- Synchronised `CONVENTIONS.md` across all six family repos (the file is copied identically).
+
 ## [0.0.1] - 2026-05-17: Initial preview, skeleton release establishing repository, package identifiers, and quality bar
 
 First public release of the assertion family's 6th package. Two NuGet packages ship from day one to claim both identifiers on nuget.org: a framework-agnostic `SseAssertions` core and a TUnit-native `SseAssertions.TUnit` adapter. .NET 10, AOT-compatible, trimmable, no runtime reflection in the assertion path.
