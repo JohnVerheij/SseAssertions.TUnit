@@ -4,16 +4,37 @@
 [assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
 namespace SseAssertions
 {
+    public enum SseCountComparison
+    {
+        AtLeast = 0,
+        AtMost = 1,
+        Exactly = 2,
+    }
     public sealed class SseEvent : System.IEquatable<SseAssertions.SseEvent>
     {
-        public SseEvent(string? EventName, string? Id, int? RetryMillis, string Data) { }
+        public SseEvent(string EventName, string Data, string? Id = null, int? RetryMillis = default) { }
         public string Data { get; init; }
-        public string? EventName { get; init; }
+        public string EventName { get; init; }
         public string? Id { get; init; }
         public int? RetryMillis { get; init; }
+    }
+    public static class SseFailureMessage
+    {
+        public static string CancellationCutRead(int bytesReceived, int eventsParsed, string partialBodyExcerpt) { }
+        public static string DataDeserializationFailed(string eventName, string data, System.Exception inner) { }
+        public static string DataPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<string> dataValues) { }
+        public static string EventCountMismatch(string eventName, int expected, int actual, SseAssertions.SseCountComparison comparison) { }
+        public static string EventNotFound(string eventName, System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> available) { }
+        public static string ParseFailure(string body) { }
+        public static string RetryMillisPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<int?> retryValues) { }
+        public static string UnexpectedContentType(string? actualContentType) { }
     }
     public static class SseFormat
     {
         public static bool LooksLikeServerSentEvents(string body) { }
+    }
+    public static class SseFrameParser
+    {
+        public static System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> Parse(string body) { }
     }
 }

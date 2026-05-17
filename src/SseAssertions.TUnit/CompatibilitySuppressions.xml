@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids -->
+<Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:SseAssertions.TUnit.SseHasEventAssertion</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:SseAssertions.TUnit.SseStreamAndHttpAssertions</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HttpResponseMessage_HasSseEvent_String_Int_Bool_CancellationToken_Assertion</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.SseHasEventAssertionExtensions</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.SseStreamAndHttpAssertions</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.Stream_HasSseEvent_String_Int_CancellationToken_Assertion</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0003</DiagnosticId>
+    <Target>SseAssertions.TUnit, Version=0.0.1.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+</Suppressions>

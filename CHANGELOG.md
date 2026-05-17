@@ -7,12 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-17: Frame parser, fluent HasSseEvent entry points across three receivers, failure-message extension point
+
+Minor release. Lifts the package from skeleton to functional: the WHATWG / W3C SSE wire-format frame parser ships, with `HasSseEvent` fluent entry points on `string`, `Stream`, and `HttpResponseMessage` receivers, plus a public `SseFailureMessage` factory surface for consumer-authored typed assertions.
+
+### Added
+
+- `SseFrameParser.Parse(string)` returns `IReadOnlyList<SseEvent>` for a WHATWG / W3C SSE wire-format body. Handles all three line terminators (`\n`, `\r\n`, `\r`), strips a single leading UTF-8 BOM at offset 0, ignores comment lines (lines starting with `:`), accumulates multi-line `data:` fields joined with `\n`, parses `retry:` as a non-negative integer (non-numeric values ignored per spec), tolerates unknown fields, and dispatches the trailing frame when the body lacks a final blank line. Per-event `Id` and `RetryMillis` semantics (a small deliberate deviation from the browser stream-wide model) so consumers can assert directly on the wire-format directives observed in each frame.
+- `SseFailureMessage` public extension point with eight factory methods: `ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`. Truncation rules pinned across the family: per-event `Data` at 80 characters, body excerpts at 256 characters, U+2026 ellipsis as suffix.
+- `SseCountComparison` public enum (`AtLeast`, `AtMost`, `Exactly`) backing the chain's count terminators and the typed comparison label in `SseFailureMessage.EventCountMismatch`.
+- `HasSseEvent(string eventName)` chain entry point on the `string` receiver, via `[AssertionExtension("HasSseEvent")]`. Returns `SseHasEventAssertion`. Chain methods: `WithData(Func<string, bool>)` (narrow to frames whose `Data` satisfies the predicate), `AtLeast(int)`, `AtMost(int)`, `Exactly(int)`.
+- `HasSseEvent(string eventName, int minCount = 1, CancellationToken ct = default)` flat entry point on the `Stream` receiver via `[GenerateAssertion]`. Returns `Task<AssertionResult>`. Reads the stream into a buffer via `ArrayPool`-backed `ReadAsync`; on `OperationCanceledException`, the partial buffer is parsed as best-effort SSE and asserted against. On chain pass the assertion passes; on chain fail the failure renders the `CancellationCutRead` diagnostic.
+- `HasSseEvent(string eventName, int minCount = 1, bool strictContentType = true, CancellationToken ct = default)` flat entry point on the `HttpResponseMessage` receiver via `[GenerateAssertion]`. Validates `Content-Type: text/event-stream` by default (case-insensitive per RFC 9110 section 8.3.2); opt-out with `strictContentType: false` for test mocks that serve SSE without the canonical header. Body read uses `Content.ReadAsStreamAsync` plus the same partial-buffer cancellation pattern as the `Stream` receiver, with encoding resolved from the response's `Content-Type` charset (UTF-8 fallback per WHATWG default).
+
 ### Changed
 
-- Updated `CONVENTIONS.md` to v0.7 (this repo bootstrapped at v0.5; this is its first cumulative update).
-- Added a per-package strict-scope policy section to `CONVENTIONS.md` with explicit scope statements for all six family packages.
-- Added a core+adapter packaging rule section to `CONVENTIONS.md`: five of six family packages ship core+adapter; `JsonAssertions.TUnit` is the sole single-package member.
-- Synchronised `CONVENTIONS.md` across all six family repos (the file is copied identically).
+- **BREAKING:** `SseEvent` record reshaped. v0.0.1 declared `SseEvent(string? EventName, string? Id, int? RetryMillis, string Data)`; v0.1.0 declares `SseEvent(string EventName, string Data, string? Id = null, int? RetryMillis = null)`. `EventName` is now non-nullable and the parser fills in `"message"` per the WHATWG default when no `event:` directive appears in the frame. Constructor parameter order shifts to put non-nullable fields first (`EventName`, `Data`) before nullable ones (`Id`, `RetryMillis`). The deliberate baseline break is recorded in `CompatibilitySuppressions.xml`. Migration note for v0.0.1 consumers: if your code matched `evt is SseEvent { EventName: null }` (the v0.0.1 idiom for "this frame had no `event:` directive"), the branch is dead at v0.1.0 because the parser populates `"message"` per the spec; switch the pattern to `evt is SseEvent { EventName: "message" }`. Named-argument constructor calls (`new SseEvent(EventName: ..., Data: ...)`) continue to compile; positional calls need to swap argument order to match the new shape.
+- `PackageValidationBaselineVersion` pinned to `0.0.1` on both packages; ApiCompat strict-mode validates v0.1.0 against the v0.0.1 baseline at pack time.
+- README adopts the family-canonical structure (Table of contents, Why, Install, Package layout, Namespaces, Quick start, Wire-format syntax, Entry points, Failure diagnostics, Cookbook, Out of scope, Design notes, Stability intent, Roadmap, Family, Contributing, License). The per-package READMEs packed into the nupkgs are updated for the v0.1.0 surface.
+- `CONVENTIONS.md` updated to v0.7: formalises a per-package strict-scope policy for all six family packages and clarifies the core+adapter packaging rule (five of six packages are core+adapter; `JsonAssertions.TUnit` is the sole single-package member). The file is copied identically across all six repos.
 
 ## [0.0.1] - 2026-05-17: Initial preview, skeleton release establishing repository, package identifiers, and quality bar
 
@@ -55,5 +68,6 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/releases/tag/v0.0.1

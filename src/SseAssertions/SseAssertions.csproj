@@ -11,10 +11,10 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions</PackageId>
     <ProductName>SseAssertions</ProductName>
-    <Version>0.0.1</Version>
+    <Version>0.1.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the public SseEvent record (event-name / id / retry / data per the WHATWG/W3C SSE wire format) and entry-point helpers. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
+    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
     <PackageTags>sse;server-sent-events;testing;assertions;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -27,11 +27,14 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 
     <!-- Pre-1.0 suppressions:
-         Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0.
-         Proj0241: PackageValidationBaselineVersion intentionally unset at v0.0.1 (no prior
-         shipped version to pin against); pins from v0.0.2 onward when the first baseline
-         exists on nuget.org. -->
-    <NoWarn>$(NoWarn);Proj0212;Proj0213;Proj0241</NoWarn>
+         Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0. -->
+    <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
+
+    <!-- ApiCompat baseline. v0.1.0 reshapes the v0.0.1 SseEvent record (EventName becomes
+         non-nullable with a "message" default per the WHATWG spec; constructor parameter
+         order shifts to put non-nullable fields first). The deliberate break is documented
+         in CHANGELOG.md and recorded in CompatibilitySuppressions.xml. -->
+    <PackageValidationBaselineVersion>0.0.1</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>
