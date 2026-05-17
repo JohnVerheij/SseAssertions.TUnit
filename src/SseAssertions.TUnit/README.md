@@ -11,22 +11,16 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 
 > **Full documentation and roadmap:** [github.com/JohnVerheij/SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 
-## Status: v0.0.1 (skeleton release)
+## What v0.1.0 ships
 
-Establishes the public adapter surface, claims the `SseAssertions.TUnit` identifier on nuget.org, and locks the quality bar before the wider per-frame assertion surface ships at v0.1.0.
+| Entry point | Receiver | Shape |
+|---|---|---|
+| `HasSseEvent(eventName)` | `string` | Chain with `WithData(predicate)`, `AtLeast(n)`, `AtMost(n)`, `Exactly(n)` |
+| `HasSseEvent(eventName, minCount, ct)` | `Stream` | Flat (`Task<AssertionResult>`); cancellation-bounded partial-buffer reads |
+| `HasSseEvent(eventName, minCount, strictContentType, ct)` | `HttpResponseMessage` | Flat; default-on `Content-Type: text/event-stream` validation |
+| `IsServerSentEventsStream()` | `string` | Lightweight discriminator (carried over from v0.0.1) |
 
-| Entry point | Behaviour |
-|---|---|
-| `IsServerSentEventsStream()` on `string` | Asserts the supplied text has the shape of an SSE stream: at least one field marker (`event:`, `data:`, `id:`, `retry:`) followed by a frame separator. |
-
-The fluent entry point auto-imports via `TUnit.Assertions.Extensions`; no extra `using` directive is needed beyond standard TUnit usings.
-
-The full v0.1.0 surface adds:
-
-- W3C SSE frame parser
-- Per-frame JSON-payload deserialization helpers via `JsonTypeInfo<T>` integration (delegate plumbing)
-- `[GenerateAssertion]` fluent extensions on `Stream` and `HttpResponseMessage` (in addition to `string`)
-- `SseAssertion` chain type with `.OfType(eventName)`, `.UntilEventType(eventName)`, `.Collect()`, `.AtLeast(n)`, `.AtMost(n)`, `.Exactly(n)`
+The chain on the `string` receiver composes `WithData(Func<string, bool>)` to narrow by data payload and `AtLeast / AtMost / Exactly` to terminate with a count assertion. The async receivers (`Stream`, `HttpResponseMessage`) use a flat-form entry point because composing an async body read with a synchronous chain is awkward in C#; the async-receiver chain is a v0.2.0 candidate.
 
 ## Install
 
@@ -34,7 +28,7 @@ The full v0.1.0 surface adds:
 dotnet add package SseAssertions.TUnit
 ```
 
-The framework-agnostic `SseAssertions` core (defining the `SseEvent` public record) comes transitively.
+The framework-agnostic `SseAssertions` core (defining the `SseEvent` public record, `SseFrameParser`, and `SseFailureMessage` factories) comes transitively.
 
 **Requirements:** TUnit 1.44.39 or later, .NET 10. AOT-compatible, trimmable, no runtime reflection in the assertion path.
 
@@ -42,13 +36,23 @@ The framework-agnostic `SseAssertions` core (defining the `SseEvent` public reco
 
 ```csharp
 [Test]
-public async Task ResponseLooksLikeSseStream()
+public async Task TickEndpoint_EmitsThreeTicks()
 {
-    const string body = "event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\n";
+    const string body = "event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\nevent: tick\ndata: 3\n\n";
 
-    await Assert.That(body).IsServerSentEventsStream();
+    await Assert.That(body).HasSseEvent("tick").Exactly(3);
+}
+
+[Test]
+public async Task NotificationEndpoint_PublishesAtLeastThreeTicks(CancellationToken ct)
+{
+    using var response = await _client.GetAsync("/notifications/ticks?take=3", ct);
+
+    await Assert.That(response).HasSseEvent("tick", minCount: 3, cancellationToken: ct);
 }
 ```
+
+See the [full README](https://github.com/JohnVerheij/SseAssertions.TUnit) for the Wire-format syntax reference, Failure diagnostics catalog, Cookbook (5 patterns), Design notes, and Out-of-scope caveats.
 
 ## License
 

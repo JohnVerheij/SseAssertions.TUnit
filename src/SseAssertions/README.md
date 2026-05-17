@@ -7,20 +7,21 @@
 
 > **Scope:** Test projects only. Not intended for production code.
 
-Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the `SseEvent` public record (`EventName` / `Id` / `RetryMillis` / `Data` per the WHATWG / W3C SSE wire format) and the entry-point helpers consumed by the TUnit adapter.
+Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the `SseEvent` public record (per the WHATWG / W3C SSE wire format), the `SseFrameParser` that turns wire text into `IReadOnlyList<SseEvent>`, the `SseFailureMessage` extension point for typed assertions, and the `SseCountComparison` enum that backs count terminators.
 
 > **Full documentation, roadmap, and the TUnit adapter:** [github.com/JohnVerheij/SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 
-## Status: v0.0.1 (skeleton release)
-
-Establishes the public surface seam, claims the `SseAssertions` identifier on nuget.org, and locks the quality bar before the wider parser + per-frame helper surface ships at v0.1.0.
+## What v0.1.0 ships
 
 | Type | Purpose |
 |---|---|
-| `SseEvent` (public record) | Stable public data type. `EventName?`, `Id?`, `RetryMillis?`, `Data` (non-null). |
-| `SseFormat.LooksLikeServerSentEvents(string)` | Lightweight discriminator: does the text have the shape of an SSE stream? |
+| `SseEvent` (public record) | Stable public data type. `EventName` (non-nullable, defaults to `"message"` per the WHATWG spec when no `event:` directive appears), `Data` (non-null), `Id?`, `RetryMillis?`. |
+| `SseFrameParser.Parse(string)` | WHATWG / W3C SSE wire-format parser; handles all three line terminators, strips a UTF-8 BOM at offset 0, ignores comment lines, accumulates multi-line data with `\n` joins. |
+| `SseFailureMessage` | Curated failure-message factories (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`) for consumer-authored typed SSE assertions. |
+| `SseCountComparison` (public enum) | Comparison label (`AtLeast`, `AtMost`, `Exactly`) carried by `EventCountMismatch`. |
+| `SseFormat.LooksLikeServerSentEvents(string)` | Lightweight discriminator (carried over from v0.0.1). |
 
-Test-framework-specific entry points live in adapter packages — [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) ships today. xUnit, NUnit, MSTest adapters are possible if demand surfaces.
+Test-framework-specific entry points live in adapter packages: [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) ships today. xUnit, NUnit, MSTest adapters are possible if demand surfaces.
 
 ## Install
 
