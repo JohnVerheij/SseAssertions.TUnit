@@ -17,33 +17,60 @@ internal sealed class SseEventTests
     public async Task SseEvent_AllFieldsSet_ConstructsAndExposesValues(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var evt = new SseEvent(EventName: "message", Id: "42", RetryMillis: 1500, Data: "hello");
+        var evt = new SseEvent(EventName: "tick", Data: "1", Id: "42", RetryMillis: 1500);
 
-        await Assert.That(evt.EventName).IsEqualTo("message");
+        await Assert.That(evt.EventName).IsEqualTo("tick");
+        await Assert.That(evt.Data).IsEqualTo("1");
         await Assert.That(evt.Id).IsEqualTo("42");
         await Assert.That(evt.RetryMillis).IsEqualTo(1500);
-        await Assert.That(evt.Data).IsEqualTo("hello");
     }
 
     [Test]
-    public async Task SseEvent_OptionalFieldsAreNullable_AcceptsNullEventNameIdAndRetry(CancellationToken ct)
+    public async Task SseEvent_OmittedOptionalParameters_DefaultToNull(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var evt = new SseEvent(EventName: null, Id: null, RetryMillis: null, Data: string.Empty);
+        var evt = new SseEvent(EventName: "message", Data: "payload");
 
-        await Assert.That(evt.EventName).IsNull();
         await Assert.That(evt.Id).IsNull();
         await Assert.That(evt.RetryMillis).IsNull();
-        await Assert.That(evt.Data).IsEqualTo(string.Empty);
+    }
+
+    [Test]
+    public async Task SseEvent_DefaultEventName_IsMessage_PerWhatwgSpec(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var parsed = SseFrameParser.Parse("data: hello\n\n");
+
+        await Assert.That(parsed.Count).IsEqualTo(1);
+        await Assert.That(parsed[0].EventName).IsEqualTo("message");
     }
 
     [Test]
     public async Task SseEvent_ValueEquality_TwoEventsWithSameFieldsAreEqual(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var a = new SseEvent("update", "1", 500, "payload");
-        var b = new SseEvent("update", "1", 500, "payload");
+        var a = new SseEvent("update", "payload", "1", 500);
+        var b = new SseEvent("update", "payload", "1", 500);
 
         await Assert.That(a).IsEqualTo(b);
+    }
+
+    [Test]
+    public async Task SseEvent_ValueEquality_DifferingDataMakesEventsUnequal(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var a = new SseEvent("tick", "1");
+        var b = new SseEvent("tick", "2");
+
+        await Assert.That(a).IsNotEqualTo(b);
+    }
+
+    [Test]
+    public async Task SseEvent_DataFieldNeverNull_EmptyStringForFramesWithEmptyData(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var evt = new SseEvent(EventName: "ping", Data: string.Empty);
+
+        await Assert.That(evt.Data).IsEqualTo(string.Empty);
     }
 }
