@@ -134,4 +134,28 @@ internal sealed class SseHasEventStringTests
             .Throws<System.ArgumentNullException>();
         await Assert.That(ex).IsNotNull();
     }
+
+    [Test]
+    public async Task HasSseEvent_NullBody_FailsWithReceiverWasNull(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        string nullBody = null!;
+        var ex = await Assert.That(async () => await Assert.That(nullBody).HasSseEvent("tick").AtLeast(1))
+            .Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("receiver was null");
+    }
+
+    [Test]
+    public async Task HasSseEvent_SourceThrows_FailsWithThrewMessage(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        System.Func<System.Threading.Tasks.Task<string?>> throwingSource =
+            () => throw new System.InvalidOperationException("boom");
+        var ex = await Assert.That(async () => await Assert.That(throwingSource).HasSseEvent("tick").AtLeast(1))
+            .Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("InvalidOperationException");
+        await Assert.That(ex.Message).Contains("boom");
+    }
 }

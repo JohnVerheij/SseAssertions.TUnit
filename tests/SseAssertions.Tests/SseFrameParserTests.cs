@@ -166,6 +166,16 @@ internal sealed class SseFrameParserTests
     }
 
     [Test]
+    public async Task Parse_RetryEmptyValue_FieldIgnored(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var events = SseFrameParser.Parse("retry:\ndata: ping\n\n");
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].RetryMillis).IsNull();
+    }
+
+    [Test]
     public async Task Parse_UnknownField_IgnoredButOtherFieldsCaptured(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

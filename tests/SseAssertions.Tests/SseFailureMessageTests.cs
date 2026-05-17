@@ -128,6 +128,15 @@ internal sealed class SseFailureMessageTests
     }
 
     [Test]
+    public async Task EventCountMismatch_UnknownComparisonValue_FallsBackToExactlyLabel(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var msg = SseFailureMessage.EventCountMismatch("tick", expected: 2, actual: 3, (SseCountComparison)999);
+
+        await Assert.That(msg).Contains("exactly 2");
+    }
+
+    [Test]
     public async Task EventCountMismatch_NullEventName_ThrowsArgumentNullException(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
