@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`CONVENTIONS.md` updated to v0.7**: formalises a per-package strict-scope policy with explicit scope statements for all six family packages, and clarifies the core+adapter packaging rule (five of six packages are core+adapter; `JsonAssertions.TUnit` is the sole single-package member). The file is copied identically across all six repos. `SseAssertions.TUnit` bootstrapped at v0.5; this is its first cumulative update.
+- Updated `CONVENTIONS.md` to v0.7 (this repo bootstrapped at v0.5; this is its first cumulative update).
+- Added a per-package strict-scope policy section to `CONVENTIONS.md` with explicit scope statements for all six family packages.
+- Added a core+adapter packaging rule section to `CONVENTIONS.md`: five of six family packages ship core+adapter; `JsonAssertions.TUnit` is the sole single-package member.
+- Synchronised `CONVENTIONS.md` across all six family repos (the file is copied identically).
 
 ## [0.0.1] - 2026-05-17: Initial preview, skeleton release establishing repository, package identifiers, and quality bar
 
