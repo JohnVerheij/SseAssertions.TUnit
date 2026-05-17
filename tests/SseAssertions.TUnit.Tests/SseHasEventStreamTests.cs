@@ -153,7 +153,9 @@ internal sealed class SseHasEventStreamTests
                 await Task.Delay(System.TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
             }
 
-            var bytesToRead = System.Math.Min(_chunkSize, _buffer.Length - _position);
+            var bytesToRead = System.Math.Min(
+                buffer.Length,
+                System.Math.Min(_chunkSize, _buffer.Length - _position));
             _buffer.AsSpan(_position, bytesToRead).CopyTo(buffer.Span);
             _position += bytesToRead;
             return bytesToRead;

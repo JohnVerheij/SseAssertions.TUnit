@@ -78,6 +78,47 @@ internal sealed class SseHasEventHttpTests
     }
 
     [Test]
+    public async Task HasSseEvent_DeclaredCharset_DecodesBodyUsingThatCharset(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string body = "event: tick\ndata: café\n\n";
+        var bytes = Encoding.Latin1.GetBytes(body);
+
+        var content = new StreamContent(new MemoryStream(bytes));
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse("text/event-stream; charset=iso-8859-1");
+        using var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+
+        await Assert.That(response).HasSseEvent("tick", cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task HasSseEvent_InvalidCharset_FallsBackToUtf8(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var bytes = Encoding.UTF8.GetBytes(ThreeTicks);
+
+        var content = new StreamContent(new MemoryStream(bytes));
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse("text/event-stream; charset=not-a-real-charset");
+        using var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+
+        await Assert.That(response).HasSseEvent("tick", cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task HasSseEvent_NullContentWithStrictFalse_FailsWithCountMismatchNotNre(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = new HttpResponseMessage(HttpStatusCode.OK);
+
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).HasSseEvent("tick", strictContentType: false, cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("but observed: 0");
+    }
+
+    [Test]
     public async Task HasSseEvent_BelowMinCount_FailsWithCountMismatch(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

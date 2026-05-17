@@ -105,8 +105,14 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
+        if (response.Content is null)
+        {
+            return AssertionResult.Failed(SseFailureMessage.EventCountMismatch(
+                eventName, minCount, 0, SseCountComparison.AtLeast));
+        }
+
         var encoding = ResolveEncoding(response);
-        var stream = await response.Content!.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
             stream, encoding, cancellationToken).ConfigureAwait(false);
         return EvaluateAgainstParsedEvents(body, bytesReceived, cancelled, eventName, minCount);
