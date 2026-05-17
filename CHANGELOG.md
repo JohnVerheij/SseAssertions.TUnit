@@ -23,9 +23,13 @@ Minor release. Lifts the package from skeleton to functional: the WHATWG / W3C S
 ### Changed
 
 - **BREAKING:** `SseEvent` record reshaped. v0.0.1 declared `SseEvent(string? EventName, string? Id, int? RetryMillis, string Data)`; v0.1.0 declares `SseEvent(string EventName, string Data, string? Id = null, int? RetryMillis = null)`. `EventName` is now non-nullable and the parser fills in `"message"` per the WHATWG default when no `event:` directive appears in the frame. Constructor parameter order shifts to put non-nullable fields first (`EventName`, `Data`) before nullable ones (`Id`, `RetryMillis`). The deliberate baseline break is recorded in `CompatibilitySuppressions.xml`. Migration note for v0.0.1 consumers: if your code matched `evt is SseEvent { EventName: null }` (the v0.0.1 idiom for "this frame had no `event:` directive"), the branch is dead at v0.1.0 because the parser populates `"message"` per the spec; switch the pattern to `evt is SseEvent { EventName: "message" }`. Named-argument constructor calls (`new SseEvent(EventName: ..., Data: ...)`) continue to compile; positional calls need to swap argument order to match the new shape.
-- `PackageValidationBaselineVersion` pinned to `0.0.1` on both packages; ApiCompat strict-mode validates v0.1.0 against the v0.0.1 baseline at pack time.
-- README adopts the family-canonical structure (Table of contents, Why, Install, Package layout, Namespaces, Quick start, Wire-format syntax, Entry points, Failure diagnostics, Cookbook, Out of scope, Design notes, Stability intent, Roadmap, Family, Contributing, License). The per-package READMEs packed into the nupkgs are updated for the v0.1.0 surface.
-- `CONVENTIONS.md` updated to v0.7: formalises a per-package strict-scope policy for all six family packages and clarifies the core+adapter packaging rule (five of six packages are core+adapter; `JsonAssertions.TUnit` is the sole single-package member). The file is copied identically across all six repos.
+- Pinned `PackageValidationBaselineVersion` to `0.0.1` on both packages; ApiCompat strict-mode now validates v0.1.0 against the v0.0.1 baseline at pack time.
+- Updated `README.md` to the family-canonical structure (Table of contents, Why, Install, Package layout, Namespaces, Quick start, Wire-format syntax, Entry points, Failure diagnostics, Cookbook, Out of scope, Design notes, Stability intent, Roadmap, Family, Contributing, License).
+- Refreshed the per-package READMEs (`src/SseAssertions/README.md`, `src/SseAssertions.TUnit/README.md`, packed into the nupkgs) for the v0.1.0 surface.
+- Updated `CONVENTIONS.md` to v0.7.
+- Added a per-package strict-scope policy section to `CONVENTIONS.md` with explicit scope statements for all six family packages.
+- Added a core+adapter packaging rule section to `CONVENTIONS.md`: five of six family packages ship core+adapter; `JsonAssertions.TUnit` is the sole single-package member.
+- Synchronised `CONVENTIONS.md` across all six family repos (the file is copied identically).
 
 ## [0.0.1] - 2026-05-17: Initial preview, skeleton release establishing repository, package identifiers, and quality bar
 
