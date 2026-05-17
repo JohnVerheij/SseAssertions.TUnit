@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SseAssertions</RootNamespace>
+    <AssemblyName>SseAssertions</AssemblyName>
+    <IsPublishable>false</IsPublishable>
+
+    <!-- Package identity -->
+    <IsPackable>true</IsPackable>
+    <PackageId>SseAssertions</PackageId>
+    <ProductName>SseAssertions</ProductName>
+    <Version>0.0.1</Version>
+    <Authors>John Verheij</Authors>
+    <Copyright>Copyright (c) 2026 John Verheij</Copyright>
+    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the public SseEvent record (event-name / id / retry / data per the WHATWG/W3C SSE wire format) and entry-point helpers. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
+    <PackageTags>sse;server-sent-events;testing;assertions;dotnet;aot</PackageTags>
+    <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Fallback: nuget.org renders this as a clickable link to the matching GitHub release.
+         Directory.Build.targets overrides this at pack time when CHANGELOG.md contains a
+         matching '## [$(Version)]' section, in which case the section body becomes the
+         Release Notes shown on nuget.org. -->
+    <PackageReleaseNotes>$(RepositoryUrl)/releases/tag/v$(Version)</PackageReleaseNotes>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <!-- Pre-1.0 suppressions:
+         Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0.
+         Proj0241: PackageValidationBaselineVersion intentionally unset at v0.0.1 (no prior
+         shipped version to pin against); pins from v0.0.2 onward when the first baseline
+         exists on nuget.org. -->
+    <NoWarn>$(NoWarn);Proj0212;Proj0213;Proj0241</NoWarn>
+
+    <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <EnableStrictModeForCompatibleFrameworksInPackage>true</EnableStrictModeForCompatibleFrameworksInPackage>
+    <EnableStrictModeForBaselineValidation>true</EnableStrictModeForBaselineValidation>
+    <ApiCompatGenerateSuppressionFile>true</ApiCompatGenerateSuppressionFile>
+    <ApiCompatEnableRuleCannotChangeParameterName>true</ApiCompatEnableRuleCannotChangeParameterName>
+    <ApiCompatEnableRuleAttributesMustMatch>true</ApiCompatEnableRuleAttributesMustMatch>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- SBOM generation per dpfa Proj0243 (Microsoft.Sbom.Targets pack-time generation).
+         SPDX 3.0 (April 2024) emits richer security-profile metadata than 2.2 / 2.3: better
+         positioned for CRA Annex I §2(1) "commonly used and machine-readable format" alignment.
+         Tooling lag note: very old scanners that don't yet parse SPDX 3.0 fall back to the
+         CycloneDX 1.6 sibling artifact emitted by the release workflow. -->
+    <GenerateSBOM>true</GenerateSBOM>
+    <SbomGenerationManifestInfo>SPDX:3.0</SbomGenerationManifestInfo>
+
+    <!-- AOT / trimming - core code uses no reflection, safe for AOT-mode test contexts -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Alphabetical per dpfa Proj0015 -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Sbom.Targets" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Codifies the no-reflection convention from CONVENTIONS.md as a build-time error.
+         RS0030 fires if any banned API is referenced from production code; combined with
+         TreatWarningsAsErrors=true the build fails. Test projects do not reference this file
+         so PublicApiGenerator and similar reflection-using helpers stay usable in tests. -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)../../BannedSymbols.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

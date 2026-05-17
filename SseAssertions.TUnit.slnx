@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/SseAssertions/SseAssertions.csproj" />
+  <Project Path="src/SseAssertions.TUnit/SseAssertions.TUnit.csproj" />
+  <Project Path="tests/SseAssertions.Tests/SseAssertions.Tests.csproj" />
+  <Project Path="tests/SseAssertions.TUnit.SnapshotTests/SseAssertions.TUnit.SnapshotTests.csproj" />
+  <Project Path="tests/SseAssertions.TUnit.Tests/SseAssertions.TUnit.Tests.csproj" />
+</Solution>

@@ -1,0 +1,25 @@
+[assembly: System.Reflection.AssemblyMetadata("IsAotCompatible", "True")]
+[assembly: System.Reflection.AssemblyMetadata("IsTrimmable", "True")]
+[assembly: System.Reflection.AssemblyMetadata("RepositoryUrl", "https://github.com/JohnVerheij/SseAssertions.TUnit")]
+[assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
+namespace SseAssertions.TUnit
+{
+    public static class SseFormatAssertions
+    {
+        [TUnit.Assertions.Attributes.GenerateAssertion]
+        public static TUnit.Assertions.Core.AssertionResult IsServerSentEventsStream(this string body) { }
+    }
+}
+namespace TUnit.Assertions.Extensions
+{
+    public static class SseFormatAssertions
+    {
+        public static TUnit.Assertions.Extensions.String_IsServerSentEventsStream_Assertion IsServerSentEventsStream(this TUnit.Assertions.Core.IAssertionSource<string> source) { }
+    }
+    public sealed class String_IsServerSentEventsStream_Assertion : TUnit.Assertions.Core.Assertion<string>
+    {
+        public String_IsServerSentEventsStream_Assertion(TUnit.Assertions.Core.AssertionContext<string> context) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<string> metadata) { }
+        protected override string GetExpectation() { }
+    }
+}

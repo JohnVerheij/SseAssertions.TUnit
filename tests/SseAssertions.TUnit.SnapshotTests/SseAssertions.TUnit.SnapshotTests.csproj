@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Public-API surface snapshot test project for SseAssertions / SseAssertions.TUnit.
+    Uses the sibling-family SnapshotAssertions.TUnit package to pin both shipped assemblies'
+    public surfaces against committed .expected.txt baselines. Any change to a public type,
+    member, signature, attribute, or visibility produces a diff against the baseline and
+    fails the test until the snapshot is explicitly re-accepted.
+
+    Cross-package dogfooding: SseAssertions consumes SnapshotAssertions.TUnit as a downstream
+    user of the family would. The dependency is test-only; SseAssertions does not gain a
+    SnapshotAssertions runtime dependency from this reference.
+
+    Snapshot baselines live under Snapshots/*.expected.txt next to this csproj.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SseAssertions.TUnit.SnapshotTests</RootNamespace>
+    <AssemblyName>SseAssertions.TUnit.SnapshotTests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+
+    <!-- Proj0022 fires when a None Include glob matches zero files. The Snapshots/ directory
+         starts empty and is populated as tests are accepted. -->
+    <NoWarn>$(NoWarn);Proj0022</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Alphabetical per dpfa Proj0015 -->
+    <PackageReference Include="PublicApiGenerator" />
+    <PackageReference Include="SnapshotAssertions.TUnit" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference both shipped projects so both public surfaces can be pinned. -->
+    <ProjectReference Include="../../src/SseAssertions/SseAssertions.csproj" />
+    <ProjectReference Include="../../src/SseAssertions.TUnit/SseAssertions.TUnit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Snapshots/**/*.expected.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
+</Project>

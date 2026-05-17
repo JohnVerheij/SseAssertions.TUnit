@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SseAssertions.Tests</RootNamespace>
+    <AssemblyName>SseAssertions.Tests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      This project tests the framework-agnostic core (SseAssertions) in isolation.
+      It deliberately does NOT reference SseAssertions.TUnit (the adapter); if a future
+      regression leaks a TUnit type into the core's public surface, the compile breaks here
+      before the adapter project hides it via its own TUnit reference. The runner-side TUnit
+      package below is an orthogonal choice (consistent with family convention); it does not
+      re-introduce SseAssertions.TUnit.
+    -->
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/SseAssertions/SseAssertions.csproj" />
+  </ItemGroup>
+
+</Project>

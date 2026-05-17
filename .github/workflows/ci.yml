@@ -1,0 +1,238 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.editorconfig'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.editorconfig'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel in-progress runs for the same ref to avoid wasting minutes on superseded commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, test & pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test core suite (with coverage)
+        # Framework-agnostic core tests (SseAssertions.Tests, v0.4.0+). Runs in isolation
+        # against the core assembly only - no SseAssertions.TUnit adapter reference, so
+        # any future regression that leaks a TUnit type into the core's public surface fails
+        # at compile time here before the adapter test project's own TUnit reference hides it.
+        run: |
+          dotnet run --project tests/SseAssertions.Tests/SseAssertions.Tests.csproj \
+            --configuration Release --no-build \
+            -- \
+            --coverage \
+            --coverage-settings .config/codecoverage.settings.xml \
+            --coverage-output coverage.cobertura.xml \
+            --coverage-output-format=cobertura
+
+      - name: Test adapter suite (with coverage)
+        # TUnit adapter tests (SseAssertions.TUnit.Tests). Covers MatchesSnapshot / chain
+        # methods / RenderedSnapshotAssertion integration. TUnit on .NET 10 SDK invokes via the
+        # test exe directly. The Microsoft.Testing.Platform --coverage flag enables
+        # Microsoft.CodeCoverage collection (transitively pulled via TUnit). --coverage-settings
+        # is required: without an explicit ModulePaths/Include in the settings file,
+        # Microsoft.CodeCoverage emits an empty 178-byte cobertura skeleton on Linux runners.
+        # The settings file uses the MTP flat Configuration/CodeCoverage schema. The = form for
+        # --coverage-output-format avoids a documented MTP space-form mis-parse.
+        run: |
+          dotnet run --project tests/SseAssertions.TUnit.Tests/SseAssertions.TUnit.Tests.csproj \
+            --configuration Release --no-build \
+            -- \
+            --coverage \
+            --coverage-settings .config/codecoverage.settings.xml \
+            --coverage-output coverage.cobertura.xml \
+            --coverage-output-format=cobertura
+
+      - name: Merge coverage reports
+        id: coverage
+        # Both test projects write coverage.cobertura.xml to their own bin directory. Merge
+        # them via ReportGenerator into a single combined cobertura XML so the threshold check
+        # and Codecov upload see unified rates across the framework-agnostic-core and adapter
+        # test surfaces. Without the merge, the threshold check would only see one report and
+        # vastly under-count covered code.
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          REPORTS=$(find tests -name 'coverage.cobertura.xml' | tr '\n' ';' | sed 's/;$//')
+          if [ -z "$REPORTS" ]; then
+            echo "::warning::No cobertura coverage reports found; skipping merge"
+            exit 0
+          fi
+          echo "Source reports: $REPORTS"
+          mkdir -p ./coverage-merged
+          reportgenerator \
+            "-reports:$REPORTS" \
+            -targetdir:./coverage-merged \
+            "-reporttypes:Cobertura"
+          MERGED=./coverage-merged/Cobertura.xml
+          if [ ! -f "$MERGED" ]; then
+            echo "::error::ReportGenerator did not emit $MERGED"
+            exit 1
+          fi
+          echo "report=$MERGED" >> "$GITHUB_OUTPUT"
+          echo "Merged coverage report: $MERGED"
+
+      # Codecov upload runs BEFORE the threshold check so the coverage trend is visible
+      # in Codecov's UI even when the threshold gate fails the build. Without this ordering,
+      # a failing threshold short-circuits the upload (default `if: success()`) and the
+      # PR shows no Codecov data.
+      - name: Upload coverage to Codecov
+        if: steps.coverage.outputs.report != ''
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
+        with:
+          files: ${{ steps.coverage.outputs.report }}
+          fail_ci_if_error: false
+          verbose: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      # Hard gates: fail the build if line OR branch coverage drops below threshold.
+      # The cobertura XML's top-level <coverage line-rate="X.XX" branch-rate="Y.YY"> is
+      # the source of truth. Thresholds match the project's quality bar; bump them up
+      # over time, never down.
+      - name: Check coverage thresholds
+        if: steps.coverage.outputs.report != ''
+        env:
+          LINE_THRESHOLD: '0.90'
+          BRANCH_THRESHOLD: '0.90'
+        run: |
+          REPORT='${{ steps.coverage.outputs.report }}'
+          LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' "$REPORT" | head -1)
+          BRANCH_RATE=$(grep -oP 'branch-rate="\K[^"]+' "$REPORT" | head -1)
+          if [ -z "$LINE_RATE" ] || [ -z "$BRANCH_RATE" ]; then
+            echo "::error::Could not extract line-rate or branch-rate from $REPORT"
+            exit 1
+          fi
+
+          LINE_PCT=$(awk -v r="$LINE_RATE" 'BEGIN { printf "%.2f", r * 100 }')
+          BRANCH_PCT=$(awk -v r="$BRANCH_RATE" 'BEGIN { printf "%.2f", r * 100 }')
+          LINE_THR_PCT=$(awk -v t="$LINE_THRESHOLD" 'BEGIN { printf "%.2f", t * 100 }')
+          BRANCH_THR_PCT=$(awk -v t="$BRANCH_THRESHOLD" 'BEGIN { printf "%.2f", t * 100 }')
+          echo "Line coverage:   ${LINE_PCT}%   (threshold: ${LINE_THR_PCT}%)"
+          echo "Branch coverage: ${BRANCH_PCT}% (threshold: ${BRANCH_THR_PCT}%)"
+
+          FAILED=0
+          if [ "$(awk -v r="$LINE_RATE" -v t="$LINE_THRESHOLD" 'BEGIN { print (r < t) ? 1 : 0 }')" = "1" ]; then
+            echo "::error::Line coverage ${LINE_PCT}% is below threshold ${LINE_THR_PCT}%"
+            FAILED=1
+          fi
+          if [ "$(awk -v r="$BRANCH_RATE" -v t="$BRANCH_THRESHOLD" 'BEGIN { print (r < t) ? 1 : 0 }')" = "1" ]; then
+            echo "::error::Branch coverage ${BRANCH_PCT}% is below threshold ${BRANCH_THR_PCT}%"
+            FAILED=1
+          fi
+          [ "$FAILED" = "0" ]
+
+      - name: Test snapshot suite (no coverage)
+        # SnapshotTests pins the public API surface using THIS package's own MatchesSnapshot()
+        # chain: pure dogfooding: the snapshot tool tests itself on its own public surface.
+        # Run in a separate step from the main coverage run because the project measures API
+        # surface, not behaviour: its execution contributes nothing useful to the coverage
+        # rate. The .config/codecoverage.settings.xml already restricts ModulePaths to the
+        # production DLLs so SnapshotTests-internal code is excluded automatically: the
+        # separate step makes that intent explicit.
+        run: |
+          dotnet run --project tests/SseAssertions.TUnit.SnapshotTests/SseAssertions.TUnit.SnapshotTests.csproj \
+            --configuration Release --no-build
+
+      - name: Pack SseAssertions (core)
+        run: dotnet pack src/SseAssertions/SseAssertions.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack SseAssertions.TUnit (TUnit adapter)
+        run: dotnet pack src/SseAssertions.TUnit/SseAssertions.TUnit.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: External-consumer smoke test (restore+build+test against just-packed nupkgs)
+        # The smoke-test project lives outside SseAssertions.TUnit.slnx and consumes
+        # SseAssertions.TUnit ONLY via PackageReference (NOT ProjectReference). Its NuGet.config
+        # routes SseAssertions.* to the just-packed local feed at ./artifacts. The project's
+        # namespace is deliberately NOT under SseAssertions.TUnit so any future regression of a
+        # namespace-resolution bug class (entry points hidden behind an explicit using) fails the
+        # smoke build before the package can ship.
+        #
+        # NuGet's relative-path resolution for local sources is fragile on Linux runners: the
+        # NuGet.config-relative "../../artifacts" sometimes fails NU1561 even after the previous
+        # Pack steps wrote nupkgs there. Bypass by passing an absolute --source flag derived from
+        # $GITHUB_WORKSPACE, which is unambiguous regardless of NuGet's path-resolution context.
+        # The existing NuGet.config still provides the packageSourceMapping that routes
+        # SseAssertions.* to local-pack at restore time. The explicit "ls" gives a one-line
+        # diagnostic if pack ever silently fails to produce artifacts.
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE/artifacts/" || (echo "::error::artifacts/ missing; Pack steps did not produce nupkgs" && exit 1)
+          dotnet restore tests/SseAssertions.TUnit.SmokeTest/SseAssertions.TUnit.SmokeTest.csproj \
+            --force-evaluate \
+            --source "$GITHUB_WORKSPACE/artifacts" \
+            --source "https://api.nuget.org/v3/index.json"
+          dotnet build tests/SseAssertions.TUnit.SmokeTest/SseAssertions.TUnit.SmokeTest.csproj --configuration Release --no-restore
+          dotnet run --project tests/SseAssertions.TUnit.SmokeTest/SseAssertions.TUnit.SmokeTest.csproj --configuration Release --no-build
+
+      - name: AOT publish smoke-test consumer
+        # Strongest possible AOT guarantee: the smoke-test consumer publishes to native code.
+        # If a transitive dependency introduces reflection / DynamicCode / unannotated patterns,
+        # the publish either warns (treated as error via the consumer's own analyzer settings)
+        # or fails to produce a runnable binary. Per family convention, the smoke-test consumer
+        # exercises every public entry point, so a clean AOT publish is the strongest single
+        # guarantee that the assertion DSL is AOT-safe end-to-end.
+        #
+        # Restore + publish are split: the previous smoke-test step's restore did not target
+        # linux-x64 RID, so the runtime-specific host/ILC packs are not in obj/ yet. A fresh
+        # restore with --runtime linux-x64 picks them up; --source flags route the
+        # SseAssertions.* packages to the local-pack feed and everything else to nuget.org
+        # (same absolute-path pattern as the previous smoke-test step, which is known-working).
+        # `dotnet publish ... --no-restore` then reuses the just-populated obj/ without the
+        # MSB1006 mis-parse that `-p:Source=...` triggers when its value contains ';' or URLs.
+        run: |
+          dotnet restore tests/SseAssertions.TUnit.SmokeTest/SseAssertions.TUnit.SmokeTest.csproj \
+            --runtime linux-x64 \
+            --force-evaluate \
+            --source "$GITHUB_WORKSPACE/artifacts" \
+            --source "https://api.nuget.org/v3/index.json"
+          dotnet publish tests/SseAssertions.TUnit.SmokeTest/SseAssertions.TUnit.SmokeTest.csproj \
+            --configuration Release \
+            --runtime linux-x64 \
+            --self-contained true \
+            --no-restore \
+            -p:PublishAot=true
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nupkg
+          path: ./artifacts/*.nupkg
+          retention-days: 7
