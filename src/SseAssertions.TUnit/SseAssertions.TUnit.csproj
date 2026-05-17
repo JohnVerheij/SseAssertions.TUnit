@@ -11,10 +11,10 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions.TUnit</PackageId>
     <ProductName>SseAssertions.TUnit</ProductName>
-    <Version>0.0.1</Version>
+    <Version>0.1.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. Fluent entry points over TUnit's Assert.That(...) pipeline for asserting on SSE event streams from HTTP response bodies, streams, and strings. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
+    <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. HasSseEvent(eventName) chain on the string receiver with WithData / AtLeast / AtMost / Exactly terminators; flat HasSseEvent(eventName, minCount, ...) on Stream and HttpResponseMessage with cancellation-bounded partial-buffer reads and default-on Content-Type: text/event-stream validation. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
     <PackageTags>tunit;sse;server-sent-events;testing;assertions;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -27,11 +27,15 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 
     <!-- Pre-1.0 suppressions:
-         Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0.
-         Proj0241: PackageValidationBaselineVersion intentionally unset at v0.0.1 (no prior
-         shipped version to pin against); pins from v0.0.2 onward when the first baseline
-         exists on nuget.org. -->
-    <NoWarn>$(NoWarn);Proj0212;Proj0213;Proj0241</NoWarn>
+         Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0. -->
+    <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
+
+    <!-- ApiCompat baseline. v0.1.0 introduces SseHasEventAssertion, the HasSseEvent generated
+         entry points on string / Stream / HttpResponseMessage, plus follow-on chain types
+         from the source generator. All additions are additive; the v0.0.1 surface
+         (IsServerSentEventsStream) is preserved unchanged. CompatibilitySuppressions.xml
+         records the accepted additive differences. -->
+    <PackageValidationBaselineVersion>0.0.1</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>
