@@ -176,9 +176,9 @@ rule described here.
 | Receiver | Entry point | Returns | Chain methods |
 |---|---|---|---|
 | `string` | `.HasSseEvent(eventName)` | `SseHasEventAssertion` (chain) | `WithData(Func<string, bool>)`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
-| `string` | `.IsServerSentEventsStream()` | flat - `Task<AssertionResult>` | - |
-| `Stream` | `.HasSseEvent(eventName, minCount, ct)` | flat - `Task<AssertionResult>` | - |
-| `HttpResponseMessage` | `.HasSseEvent(eventName, minCount, strictContentType, ct)` | flat - `Task<AssertionResult>` | - |
+| `string` | `.IsServerSentEventsStream()` | flat - `AssertionResult` | - |
+| `Stream` | `.HasSseEvent(eventName, minCount, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
 The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the
