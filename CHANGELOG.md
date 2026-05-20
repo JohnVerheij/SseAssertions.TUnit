@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-05-20: HasSseContentType, HasFirstSseEvent, HasSseEventsInOrder, HasSseRetryDirective
 
-Minor release. Adds four new assertion families covering the broadest-shape SSE smoke-test patterns: a header-only Content-Type discriminator (`HasSseContentType`), a first-event check (`HasFirstSseEvent`), an ordered-sequence check with optional contiguous mode (`HasSseEventsInOrder` + `.WithStrictOrdering()`), and a `retry:`-directive check (`HasSseRetryDirective`). Two README accuracy fixes for the v0.1.0 entry-points table; expanded WHATWG default-event-name documentation; full CONVENTIONS-compliant Renovate-driven infra rollout. No breaking changes; v0.1.0 ApiCompat baseline preserved.
+Minor release. Adds four new assertions covering common SSE smoke-test patterns: a header-only Content-Type discriminator (`HasSseContentType`), a first-event check (`HasFirstSseEvent`), an ordered-sequence check with optional contiguous mode (`HasSseEventsInOrder` + `.WithStrictOrdering()`), and a `retry:`-directive check (`HasSseRetryDirective`). Two README accuracy fixes for the v0.1.0 entry-points table; expanded WHATWG default-event-name documentation. No breaking changes; v0.1.0 ApiCompat baseline preserved.
 
 ### Added
 
@@ -25,13 +25,8 @@ Minor release. Adds four new assertion families covering the broadest-shape SSE 
 - Expanded the README "Default event name" bullet in the Wire-format syntax section with a "Practical consequence for test fixtures" note: unlabelled `data: ...\n\n` frames match `HasSseEvent("message")`, `HasFirstSseEvent("message")`, and `HasSseEventsInOrder("message")` per WHATWG; fixtures that emit unlabelled frames must assert against `"message"`, not `null`.
 - Bumped `PackageValidationBaselineVersion` from `0.0.1` to `0.1.0` on both packages; ApiCompat strict-mode now validates v0.2.0 against the v0.1.0 baseline at pack time. The v0.2.0 changes are purely additive; no `CompatibilitySuppressions.xml` updates required.
 - Replaced forward-looking `v0.2.0` mentions in the README (`async-receiver chain is a v0.2.0 candidate`, `streaming async-enumerable mode is a v0.2.0 candidate`, `WithRetryMillis(predicate)` deferral wording) with version-agnostic phrasing; renamed `## Roadmap to v0.2.0` to `## Roadmap` and `## Out of scope for v0.1.0` to `## Out of scope` so the section headings stop drifting with each release.
-- Added a Downloads badge and collapsed the two NuGet version badges to a single adapter-only badge so the banner set matches `TimeAssertions.TUnit`. Replaced the single `## Family` section with `## Family compatibility` (release / ApiCompat prose + per-package CHANGELOG cross-links) and `## Pair with` (sibling package descriptions) to mirror the canonical family-repo structure.
-
-### Infrastructure
-
-- Migrated CI dependency automation from Dependabot to Renovate (`.github/renovate.json`), matching `TimeAssertions.TUnit`. Daily schedule (before 4am Europe/Amsterdam), `customManagers` keep TUnit version literals in the root README, package README, smoketest csproj, and bug-report Issue Form in lockstep with the central `Directory.Packages.props` pin. `platformAutomerge` replaces the separate `dependabot-auto-merge.yml` workflow. Dependency dashboard issue enabled. Explicit semantic commit scopes: `deps(nuget)`, `ci(github-actions)`, `ci(dotnet-sdk)`.
-- Extended the Renovate auto-merge `packageRule` to cover `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch`. Closes a gap where SHA-pinned GitHub Actions digest bumps (Renovate's `updateType: "digest"`) sat open with green CI but no auto-merge enabled.
-- Added a Renovate `packageRule` grouping the three TUnit packages (`TUnit`, `TUnit.Assertions`, `TUnit.Core`) into a single PR per release. They share a source repo and bump in lockstep; the prior three-separate-PRs behavior wasted CI runs and risked partial bumps if one merged before the others.
+- Added a Downloads badge and collapsed the two NuGet version badges to a single adapter-only badge so the banner set matches `TimeAssertions.TUnit`. Replaced the single `## Family` section with `## Family compatibility` (release / ApiCompat prose + per-package CHANGELOG cross-links) and `## Pair with` (sibling package descriptions) to match the family-repo structure.
+- Migrated CI dependency automation from Dependabot to Renovate (`.github/renovate.json`), matching `TimeAssertions.TUnit`. Daily schedule (before 4am Europe/Amsterdam), `customManagers` keep TUnit version literals in the root README, package README, smoketest csproj, and bug-report Issue Form in lockstep with the central `Directory.Packages.props` pin. `platformAutomerge` replaces the separate `dependabot-auto-merge.yml` workflow. Dependency dashboard issue enabled. Explicit semantic commit scopes: `deps(nuget)`, `ci(github-actions)`, `ci(dotnet-sdk)`. Auto-merge covers `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch` so SHA-pinned GitHub Actions digest bumps go through without manual intervention. The three TUnit packages (`TUnit`, `TUnit.Assertions`, `TUnit.Core`) are grouped into a single PR per release.
 
 ## [0.1.0] - 2026-05-17: Frame parser, fluent HasSseEvent entry points across three receivers, failure-message extension point
 
@@ -98,6 +93,7 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/releases/tag/v0.0.1
