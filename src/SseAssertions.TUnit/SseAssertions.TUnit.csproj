@@ -11,7 +11,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions.TUnit</PackageId>
     <ProductName>SseAssertions.TUnit</ProductName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. HasSseEvent(eventName) chain on the string receiver with WithData / AtLeast / AtMost / Exactly terminators; flat HasSseEvent(eventName, minCount, ...) on Stream and HttpResponseMessage with cancellation-bounded partial-buffer reads and default-on Content-Type: text/event-stream validation. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
@@ -35,7 +35,7 @@
          from the source generator. All additions are additive; the v0.0.1 surface
          (IsServerSentEventsStream) is preserved unchanged. CompatibilitySuppressions.xml
          records the accepted additive differences. -->
-    <PackageValidationBaselineVersion>0.0.1</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>0.1.0</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>
