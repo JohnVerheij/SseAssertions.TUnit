@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a Downloads badge and collapsed the two NuGet version badges to a single adapter-only badge, matching the `TimeAssertions.TUnit` banner set.
 - Replaced the single `## Family` section with `## Family compatibility` (release / ApiCompat prose + CHANGELOG cross-links) and `## Pair with` (sibling package descriptions), matching the `TimeAssertions.TUnit` README structure.
 - Extended the Renovate auto-merge `packageRule` to cover `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch`. Closes a gap where SHA-pinned GitHub Actions digest bumps (Renovate's `updateType: "digest"`) sat open with green CI but no auto-merge enabled.
+- Switched Renovate from Mend Community Free (hosted) to self-hosted via `.github/workflows/renovate.yml` using `renovatebot/github-action`. Runs hourly on a cron we control plus on-demand via `workflow_dispatch`. The `renovate.json` config is unchanged; only the delivery vehicle changed. Driver: Mend's free tier left queued bumps unprocessed for 30+ minutes with no transparency; self-hosted runs in seconds on a predictable schedule. Requires a fine-grained PAT in repo secret `RENOVATE_TOKEN` and the Mend Renovate GitHub App uninstalled from this repo.
 
 ## [0.1.0] - 2026-05-17: Frame parser, fluent HasSseEvent entry points across three receivers, failure-message extension point
 
