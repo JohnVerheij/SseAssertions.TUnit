@@ -18,7 +18,7 @@
     <PackageVersion Include="PublicApiGenerator" Version="11.5.4" />
     <PackageVersion Include="SnapshotAssertions.TUnit" Version="0.4.0" />
     <PackageVersion Include="TUnit" Version="1.44.39" />
-    <PackageVersion Include="TUnit.Assertions" Version="1.44.39" />
+    <PackageVersion Include="TUnit.Assertions" Version="1.45.22" />
     <PackageVersion Include="TUnit.Core" Version="1.44.39" />
   </ItemGroup>
 
