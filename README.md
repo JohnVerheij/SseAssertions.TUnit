@@ -180,6 +180,9 @@ rule described here.
 | `Stream` | `.HasSseEvent(eventName, minCount, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseContentType(strict)` | flat - `AssertionResult` | - |
+| `string` | `.HasFirstSseEvent(eventName)` | flat - `AssertionResult` | - |
+| `Stream` | `.HasFirstSseEvent(eventName, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
 The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the

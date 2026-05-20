@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SseAssertions;
 using TUnit.Assertions.Attributes;
 using TUnit.Assertions.Core;
@@ -36,5 +37,45 @@ public static class SseFormatAssertions
             : AssertionResult.Failed(
                 "the value to have the shape of a Server-Sent Events stream\n"
                 + "  but no SSE field marker (event:, data:, id:, retry:) was found before a frame separator (\\n\\n)\n");
+    }
+
+    /// <summary>Asserts the first SSE frame parsed from <paramref name="body"/> has
+    /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabelled frames match
+    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule.</summary>
+    /// <param name="body">The SSE wire-format body to inspect.</param>
+    /// <param name="eventName">The event-type name expected on the first frame.</param>
+    /// <returns>A passing assertion when the first parsed frame matches; otherwise a failing
+    /// assertion naming the observed first event or reporting "no events".</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="body"/> or
+    /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static AssertionResult HasFirstSseEvent(this string body, string eventName)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        ArgumentNullException.ThrowIfNull(eventName);
+
+        var events = SseFrameParser.Parse(body);
+        return EvaluateFirstEvent(events, eventName);
+    }
+
+    internal static AssertionResult EvaluateFirstEvent(IReadOnlyList<SseEvent> events, string expectedEventName)
+    {
+        if (events.Count is 0)
+        {
+            return AssertionResult.Failed(string.Concat(
+                "the first event to be \"",
+                expectedEventName,
+                "\"\n  but the stream contained no events"));
+        }
+
+        var actualFirst = events[0].EventName;
+        return string.Equals(actualFirst, expectedEventName, StringComparison.Ordinal)
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(string.Concat(
+                "the first event to be \"",
+                expectedEventName,
+                "\"\n  but the first event was \"",
+                actualFirst,
+                "\""));
     }
 }
