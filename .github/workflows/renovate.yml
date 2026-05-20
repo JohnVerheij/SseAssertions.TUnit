@@ -1,30 +1,43 @@
 name: renovate
 
-# Self-hosted Renovate via GitHub Actions.
-#
-# Runs the same renovate.json config as the Mend-hosted version, but on a
-# cron we control instead of Mend Community Free tier's opaque queue.
-# Switch driver: today's Mend free tier left a TUnit-trio bump queued for
-# 30+ minutes with no progress; self-hosted runs in seconds on its own
-# schedule.
+# Self-hosted Renovate via GitHub Actions, authenticated as a dedicated
+# GitHub App. Commits made via the App's installation token are auto-signed
+# by GitHub, which satisfies the "Require signed commits" branch protection
+# on main. Mend's hosted Renovate worked because Mend IS a GitHub App;
+# self-hosted-via-PAT would not work because PAT-authenticated API commits
+# are unsigned.
 #
 # Prerequisites (one-time setup, done manually outside this workflow):
-#   1. Create a fine-grained PAT scoped to this repo with permissions:
-#        Contents: read & write
-#        Issues: read & write
-#        Pull requests: read & write
-#        Workflows: read & write
-#      Token URL: https://github.com/settings/personal-access-tokens/new
-#   2. Add the PAT as repo secret RENOVATE_TOKEN
-#      (Settings -> Secrets and variables -> Actions -> New repository secret)
-#   3. Uninstall the Mend Renovate GitHub App from this repo (or change its
-#      "Selected repositories" to exclude SseAssertions.TUnit) so the two
-#      Renovate instances do not produce duplicate PRs.
-#      App URL: https://github.com/settings/installations
 #
-# Why a PAT and not GITHUB_TOKEN: PRs created with GITHUB_TOKEN do not
-# trigger subsequent workflow runs (GitHub safety rule), so CI would never
-# run on Renovate PRs and platformAutomerge would never fire.
+#   1. Create a GitHub App at https://github.com/settings/apps/new
+#      - Name: pick something repo-specific (e.g. "SseAssertions Renovate")
+#      - Homepage URL: this repo's URL is fine
+#      - Webhook: DISABLE (uncheck "Active") - we trigger via cron, not webhook
+#      - Repository permissions:
+#          Contents: Read & write
+#          Issues: Read & write
+#          Pull requests: Read & write
+#          Workflows: Read & write
+#          (Metadata: Read is auto-required)
+#      - Subscribe to events: none
+#      - Where can be installed: "Only on this account"
+#
+#   2. After creation, on the App's settings page:
+#      - Note the App ID (numeric, visible at top)
+#      - Scroll to "Private keys" -> "Generate a private key" -> downloads .pem
+#
+#   3. Install the App on this repository:
+#      - On the App settings page, click "Install App" in the sidebar
+#      - Choose this account, then "Only select repositories" -> SseAssertions.TUnit
+#
+#   4. Add two repo secrets (Settings -> Secrets and variables -> Actions):
+#        RENOVATE_APP_ID         = the numeric App ID
+#        RENOVATE_APP_PRIVATE_KEY = full contents of the .pem file (multi-line, OK)
+#
+#   5. Uninstall the Mend Renovate GitHub App from this repo (or change its
+#      "Selected repositories" to exclude SseAssertions.TUnit) at
+#      https://github.com/settings/installations so the two Renovate
+#      instances do not produce duplicate PRs.
 
 on:
   schedule:
@@ -61,18 +74,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Mint GitHub App installation token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          token: ${{ steps.app-token.outputs.token }}
           show-progress: false
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v41.0.0
+        uses: renovatebot/github-action@v41
         env:
           LOG_LEVEL: ${{ inputs.log-level || 'info' }}
           RENOVATE_PLATFORM: github
+          # platformCommit makes Renovate create commits via the GitHub API
+          # instead of git CLI. API commits made by a GitHub App are auto-signed
+          # by GitHub, which is the whole point of using the App here.
+          RENOVATE_PLATFORM_COMMIT: 'true'
           RENOVATE_REPOSITORIES: ${{ github.repository }}
-          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
+          RENOVATE_USERNAME: ${{ steps.app-token.outputs.app-slug }}[bot]
+          RENOVATE_GIT_AUTHOR: '${{ steps.app-token.outputs.app-slug }}[bot] <${{ secrets.RENOVATE_APP_ID }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
           RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
 
       - name: Upload Renovate log on failure
