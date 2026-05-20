@@ -168,7 +168,7 @@
       "sseassertions.tunit": {
         "type": "Project",
         "dependencies": {
-          "SseAssertions": "[0.0.1, )",
+          "SseAssertions": "[0.1.0, )",
           "TUnit.Assertions": "[1.44.39, )",
           "TUnit.Core": "[1.44.39, )"
         }
