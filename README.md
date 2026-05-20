@@ -3,10 +3,8 @@
 [![CI](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/codeql.yml/badge.svg)](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/JohnVerheij/SseAssertions.TUnit/branch/main/graph/badge.svg)](https://codecov.io/gh/JohnVerheij/SseAssertions.TUnit)
-[![NuGet (SseAssertions)](https://img.shields.io/nuget/v/SseAssertions.svg?label=SseAssertions)](https://www.nuget.org/packages/SseAssertions/)
-[![NuGet (SseAssertions.TUnit)](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg?label=SseAssertions.TUnit)](https://www.nuget.org/packages/SseAssertions.TUnit/)
-[![Downloads (SseAssertions)](https://img.shields.io/nuget/dt/SseAssertions.svg?label=Downloads%20SseAssertions)](https://www.nuget.org/packages/SseAssertions/)
-[![Downloads (SseAssertions.TUnit)](https://img.shields.io/nuget/dt/SseAssertions.TUnit.svg?label=Downloads%20SseAssertions.TUnit)](https://www.nuget.org/packages/SseAssertions.TUnit/)
+[![NuGet](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
+[![Downloads](https://img.shields.io/nuget/dt/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
