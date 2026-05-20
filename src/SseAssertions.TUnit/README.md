@@ -26,6 +26,9 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 | `HasSseEventsInOrder(eventNames)` | `string` | Chain with `.WithStrictOrdering()`. Default permits gaps between named events; strict mode requires contiguous appearance. |
 | `HasSseEventsInOrder(eventNames, strictOrdering, cancellationToken)` | `Stream` | Async flat form. `strictOrdering: true` requires contiguous. |
 | `HasSseEventsInOrder(eventNames, strictOrdering, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async flat form with `Content-Type` validation (default-on). |
+| `HasSseRetryDirective(millis)` | `string` | Asserts a `retry:` directive is present. `millis: null` accepts any value; `millis: <n>` requires exact match. |
+| `HasSseRetryDirective(millis, cancellationToken)` | `Stream` | Async; same shape. |
+| `HasSseRetryDirective(millis, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then inspects retry directives. |
 
 The chain on the `string` receiver composes `WithData(Func<string, bool>)` to narrow by data payload and `AtLeast / AtMost / Exactly` to terminate with a count assertion. The async receivers (`Stream`, `HttpResponseMessage`) use a flat-form entry point because composing an async body read with a synchronous chain is awkward in C#; the async-receiver chain is a candidate for a future release.
 

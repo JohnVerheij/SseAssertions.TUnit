@@ -186,6 +186,9 @@ rule described here.
 | `string` | `.HasSseEventsInOrder(eventNames)` | `SseEventsInOrderAssertion` (chain) | `WithStrictOrdering()` |
 | `Stream` | `.HasSseEventsInOrder(eventNames, strictOrdering, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseEventsInOrder(eventNames, strictOrdering, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `string` | `.HasSseRetryDirective(millis)` | flat - `AssertionResult` | - |
+| `Stream` | `.HasSseRetryDirective(millis, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasSseRetryDirective(millis, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
 The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the

@@ -312,6 +312,72 @@ public static class SseStreamAndHttpAssertions
         return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
     }
 
+    /// <summary>Asserts the supplied <see cref="Stream"/> contains a <c>retry:</c> directive.
+    /// When <paramref name="millis"/> is supplied, requires at least one frame whose
+    /// <c>retry:</c> value equals it; when <see langword="null"/>, any retry value passes.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
+    /// <see langword="null"/> to accept any value.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirective(
+        this Stream stream, int? millis = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseFormatAssertions.EvaluateRetryDirective(events, millis);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains a
+    /// <c>retry:</c> directive. When <paramref name="millis"/> is supplied, requires at least one
+    /// frame whose <c>retry:</c> value equals it; when <see langword="null"/>, any retry value
+    /// passes.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
+    /// <see langword="null"/> to accept any value.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found, or
+    /// fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
+    /// is on and the header is wrong.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirective(
+        this HttpResponseMessage response,
+        int? millis = null,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return SseFormatAssertions.EvaluateRetryDirective(System.Array.Empty<SseEvent>(), millis);
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseFormatAssertions.EvaluateRetryDirective(events, millis);
+    }
+
     private static AssertionResult EvaluateFirstEventWithCancellation(
         string body, int bytesReceived, bool cancelled, string expectedEventName)
     {
