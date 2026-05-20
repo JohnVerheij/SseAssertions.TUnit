@@ -11,7 +11,7 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 
 > **Full documentation and roadmap:** [github.com/JohnVerheij/SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 
-## What v0.1.0 ships
+## What v0.2.0 ships
 
 | Entry point | Receiver | Shape |
 |---|---|---|

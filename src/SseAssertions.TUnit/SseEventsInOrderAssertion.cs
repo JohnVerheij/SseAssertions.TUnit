@@ -163,8 +163,18 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             }
         }
 
-        // Find the closest near-miss for the diagnostic: the first index where the first expected
-        // name matches but a later expected name does not.
+        return BuildStrictNearMissFailure(events, expectedNames);
+    }
+
+    private static AssertionResult BuildStrictNearMissFailure(IReadOnlyList<SseEvent> events, IReadOnlyList<string> expectedNames)
+    {
+        // Prefer a concrete mismatch (more informative) over a partial-prefix report. Walk every
+        // position where the first expected name appears; return on the first contiguous mismatch,
+        // otherwise track the longest partial-prefix match that ran off the end of the stream so the
+        // fallback message points at the actual partial match (not a misleading "first expected name
+        // not in stream") when the prefix matched but the stream ended early.
+        var bestPartialStart = -1;
+        var bestPartialLength = 0;
         for (var start = 0; start <= events.Count - 1; start++)
         {
             if (!string.Equals(events[start].EventName, expectedNames[0], StringComparison.Ordinal))
@@ -172,31 +182,64 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
                 continue;
             }
 
+            var matchedLength = 1;
             for (var k = 1; k < expectedNames.Count && start + k < events.Count; k++)
             {
                 if (!string.Equals(events[start + k].EventName, expectedNames[k], StringComparison.Ordinal))
                 {
-                    return AssertionResult.Failed(string.Concat(
-                        "expected events [",
-                        FormatNameList(expectedNames),
-                        "] contiguously, but \"",
-                        events[start + k].EventName,
-                        "\" appeared at index ",
-                        (start + k).ToString(CultureInfo.InvariantCulture),
-                        " instead of \"",
-                        expectedNames[k],
-                        "\""));
+                    return FailWithMismatch(expectedNames, events[start + k].EventName, start + k, expectedNames[k]);
                 }
+
+                matchedLength++;
+            }
+
+            if (matchedLength > bestPartialLength)
+            {
+                bestPartialStart = start;
+                bestPartialLength = matchedLength;
             }
         }
 
+        return bestPartialStart >= 0
+            ? FailWithPartialPrefix(expectedNames, bestPartialStart, bestPartialLength)
+            : FailWithFirstNameNotInStream(expectedNames);
+    }
+
+    private static AssertionResult FailWithMismatch(IReadOnlyList<string> expectedNames, string actualName, int actualIndex, string expectedName)
+        => AssertionResult.Failed(string.Concat(
+            "expected events [",
+            FormatNameList(expectedNames),
+            "] contiguously, but \"",
+            actualName,
+            "\" appeared at index ",
+            actualIndex.ToString(CultureInfo.InvariantCulture),
+            " instead of \"",
+            expectedName,
+            "\""));
+
+    private static AssertionResult FailWithPartialPrefix(IReadOnlyList<string> expectedNames, int prefixStart, int prefixLength)
+    {
+        var matchedPrefix = new string[prefixLength];
+        for (var i = 0; i < prefixLength; i++)
+        {
+            matchedPrefix[i] = expectedNames[i];
+        }
         return AssertionResult.Failed(string.Concat(
+            "expected events [",
+            FormatNameList(expectedNames),
+            "] contiguously, but the stream ended after matching prefix [",
+            FormatNameList(matchedPrefix),
+            "] starting at index ",
+            prefixStart.ToString(CultureInfo.InvariantCulture)));
+    }
+
+    private static AssertionResult FailWithFirstNameNotInStream(IReadOnlyList<string> expectedNames)
+        => AssertionResult.Failed(string.Concat(
             "expected events [",
             FormatNameList(expectedNames),
             "] contiguously, but \"",
             expectedNames[0],
             "\" was not in the stream"));
-    }
 
     private static bool MatchesAt(IReadOnlyList<SseEvent> events, int start, IReadOnlyList<string> expectedNames)
     {

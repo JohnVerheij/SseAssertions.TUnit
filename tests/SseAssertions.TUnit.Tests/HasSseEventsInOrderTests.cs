@@ -225,13 +225,13 @@ internal sealed class HasSseEventsInOrderTests
     }
 
     [Test]
-    public async Task String_StrictPartialMatchThenStreamExhausted_FailsWithMismatchDiagnostic(CancellationToken ct)
+    public async Task String_StrictPartialMatchThenStreamExhausted_FailsWithPartialPrefixDiagnostic(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        // Stream: [x, a, b] — first expected 'a' matches at index 1, but the strict sequence
-        // 'a, b, c' would need a 'c' at index 3 which is beyond the stream. Hits the partial-
-        // walk branch in the near-miss diagnostic where the inner loop's start+k<events.Count
-        // condition terminates before finding a mismatch.
+        // Stream: [x, a, b]. Strict sequence [a, b, c] matches as far as [a, b] starting at
+        // index 1, then the stream ends before 'c' can appear. The diagnostic should name the
+        // matched prefix and its starting index; it must NOT report "a was not in the stream"
+        // because 'a' is present at index 1.
         const string xab = "event: x\ndata: 0\n\nevent: a\ndata: 1\n\nevent: b\ndata: 2\n\n";
         var ex = await Assert.That(async () =>
         {
@@ -239,6 +239,10 @@ internal sealed class HasSseEventsInOrderTests
         }).Throws<AssertionException>();
 
         await Assert.That(ex!.Message).Contains("contiguously");
+        await Assert.That(ex.Message).Contains("ended after matching prefix [a, b]");
+        await Assert.That(ex.Message).Contains("starting at index 1");
+        // Sanity: must not regress to the misleading "was not in the stream" fallback.
+        await Assert.That(ex.Message).DoesNotContain("was not in the stream");
     }
 
     private static MemoryStream ToStream(string body) => new(Encoding.UTF8.GetBytes(body));
