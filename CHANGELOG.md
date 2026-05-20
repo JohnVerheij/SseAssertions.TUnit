@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a Downloads badge and collapsed the two NuGet version badges to a single adapter-only badge, matching the `TimeAssertions.TUnit` banner set.
 - Replaced the single `## Family` section with `## Family compatibility` (release / ApiCompat prose + CHANGELOG cross-links) and `## Pair with` (sibling package descriptions), matching the `TimeAssertions.TUnit` README structure.
 - Extended the Renovate auto-merge `packageRule` to cover `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch`. Closes a gap where SHA-pinned GitHub Actions digest bumps (Renovate's `updateType: "digest"`) sat open with green CI but no auto-merge enabled.
+- Added a Renovate `packageRule` grouping the three TUnit packages (`TUnit`, `TUnit.Assertions`, `TUnit.Core`) into a single PR per release. They share a source repo and bump in lockstep; the prior three-separate-PRs behavior (visible during the TUnit 1.45.22 wave) wasted CI runs and risked partially-applied bumps if one PR merged before the others.
 
 ## [0.1.0] - 2026-05-17: Frame parser, fluent HasSseEvent entry points across three receivers, failure-message extension point
 
