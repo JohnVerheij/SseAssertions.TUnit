@@ -192,7 +192,48 @@ internal sealed class HasFirstSseEventTests
         await Assert.That(ex).IsNotNull();
     }
 
+    [Test]
+    public async Task Stream_CancellationCutsReadBeforeAnyFrame_FailsWithCancellationCutMessage(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        using var stream = new AlwaysCancelStream();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(stream).HasFirstSseEvent("anything", cancellationToken: cts.Token);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("cancelled after");
+        await Assert.That(ex.Message).Contains("0 event(s)");
+    }
+
     private static MemoryStream ToStream(string body) => new(Encoding.UTF8.GetBytes(body));
+
+    private sealed class AlwaysCancelStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new System.NotSupportedException();
+        public override long Position
+        {
+            get => 0;
+            set => throw new System.NotSupportedException();
+        }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => 0;
+        public override System.Threading.Tasks.ValueTask<int> ReadAsync(
+            System.Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return System.Threading.Tasks.ValueTask.FromResult(0);
+        }
+        public override long Seek(long offset, SeekOrigin origin) => throw new System.NotSupportedException();
+        public override void SetLength(long value) => throw new System.NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new System.NotSupportedException();
+    }
 
     private static HttpResponseMessage BuildResponse(string body, string contentType)
     {

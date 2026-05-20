@@ -84,6 +84,22 @@ internal sealed class HasSseRetryDirectiveTests
     }
 
     [Test]
+    public async Task String_MultipleRetryDirectives_NoneMatch_FailsListingAllObserved(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(MultipleRetries).HasSseRetryDirective(9999);
+        }).Throws<AssertionException>();
+
+        // The failure message should list both observed values, comma-separated.
+        await Assert.That(ex!.Message).Contains("\"retry: 9999\"");
+        await Assert.That(ex.Message).Contains("3000");
+        await Assert.That(ex.Message).Contains("5000");
+        await Assert.That(ex.Message).Contains(", ");
+    }
+
+    [Test]
     public async Task String_NullBody_ThrowsArgumentNullException(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
