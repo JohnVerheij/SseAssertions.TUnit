@@ -23,6 +23,8 @@ namespace SseAssertions.TUnit
     public static class SseStreamAndHttpAssertions
     {
         [TUnit.Assertions.Attributes.GenerateAssertion]
+        public static TUnit.Assertions.Core.AssertionResult HasSseContentType(this System.Net.Http.HttpResponseMessage response, bool strict = false) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseEvent(this System.IO.Stream stream, string eventName, int minCount = 1, System.Threading.CancellationToken cancellationToken = default) { }
         [TUnit.Assertions.Attributes.GenerateAssertion]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseEvent(this System.Net.Http.HttpResponseMessage response, string eventName, int minCount = 1, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
@@ -30,6 +32,12 @@ namespace SseAssertions.TUnit
 }
 namespace TUnit.Assertions.Extensions
 {
+    public sealed class HttpResponseMessage_HasSseContentType_Bool_Assertion : TUnit.Assertions.Core.Assertion<System.Net.Http.HttpResponseMessage>
+    {
+        public HttpResponseMessage_HasSseContentType_Bool_Assertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, bool strict) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Net.Http.HttpResponseMessage> metadata) { }
+        protected override string GetExpectation() { }
+    }
     public sealed class HttpResponseMessage_HasSseEvent_String_Int_Bool_CancellationToken_Assertion : TUnit.Assertions.Core.Assertion<System.Net.Http.HttpResponseMessage>
     {
         public HttpResponseMessage_HasSseEvent_String_Int_Bool_CancellationToken_Assertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, string eventName, int minCount, bool strictContentType, System.Threading.CancellationToken cancellationToken) { }
@@ -46,6 +54,9 @@ namespace TUnit.Assertions.Extensions
     }
     public static class SseStreamAndHttpAssertions
     {
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.HttpResponseMessage_HasSseContentType_Bool_Assertion HasSseContentType<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, bool strict = false, [System.Runtime.CompilerServices.CallerArgumentExpression("strict")] string? strictExpression = null)
+            where TActual : System.Net.Http.HttpResponseMessage { }
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.Stream_HasSseEvent_String_Int_CancellationToken_Assertion HasSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, int minCount = 1, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("minCount")] string? minCountExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.IO.Stream { }

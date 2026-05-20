@@ -41,6 +41,47 @@ public static class SseStreamAndHttpAssertions
 {
     private const string SseMediaType = "text/event-stream";
 
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/>'s <c>Content-Type</c>
+    /// header indicates a Server-Sent Events stream. Header-only check; the response body is
+    /// not read. Use this as a lightweight smoke-test discriminator for SSE endpoints.</summary>
+    /// <param name="response">The HTTP response whose <c>Content-Type</c> to inspect.</param>
+    /// <param name="strict">When <see langword="false"/> (the default), passes when the media
+    /// type is <c>text/event-stream</c> (case-insensitive); trailing parameters like
+    /// <c>; charset=utf-8</c> are ignored. When <see langword="true"/>, requires the full
+    /// <c>Content-Type</c> header to be exactly <c>text/event-stream</c> with no parameters.</param>
+    /// <returns>An assertion that passes when the <c>Content-Type</c> matches per
+    /// <paramref name="strict"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static AssertionResult HasSseContentType(
+        this HttpResponseMessage response,
+        bool strict = false)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        var contentType = response.Content?.Headers?.ContentType;
+        var expectedLine = strict
+            ? "the response to have Content-Type exactly \"text/event-stream\""
+            : "the response to have Content-Type starting with \"text/event-stream\"";
+
+        if (contentType is null)
+        {
+            return AssertionResult.Failed(string.Concat(expectedLine, "\n  but got: <absent>"));
+        }
+
+        var mediaTypeMatches = string.Equals(contentType.MediaType, SseMediaType, StringComparison.OrdinalIgnoreCase);
+        var passes = strict
+            ? mediaTypeMatches && contentType.Parameters.Count is 0
+            : mediaTypeMatches;
+
+        return passes
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(string.Concat(
+                expectedLine,
+                "\n  but got: ",
+                contentType.ToString()));
+    }
+
     /// <summary>Asserts the supplied <see cref="Stream"/> contains at least
     /// <paramref name="minCount"/> SSE frames of type <paramref name="eventName"/>.</summary>
     /// <param name="stream">The SSE stream. Read to its end (or until <paramref name="cancellationToken"/>
