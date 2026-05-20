@@ -183,6 +183,9 @@ rule described here.
 | `string` | `.HasFirstSseEvent(eventName)` | flat - `AssertionResult` | - |
 | `Stream` | `.HasFirstSseEvent(eventName, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `string` | `.HasSseEventsInOrder(eventNames)` | `SseEventsInOrderAssertion` (chain) | `WithStrictOrdering()` |
+| `Stream` | `.HasSseEventsInOrder(eventNames, strictOrdering, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasSseEventsInOrder(eventNames, strictOrdering, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
 The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the

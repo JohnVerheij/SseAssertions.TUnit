@@ -23,6 +23,9 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 | `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabelled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
 | `HasFirstSseEvent(eventName, cancellationToken)` | `Stream` | Async; reads to end then asserts first frame. |
 | `HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then asserts first frame. |
+| `HasSseEventsInOrder(eventNames)` | `string` | Chain with `.WithStrictOrdering()`. Default permits gaps between named events; strict mode requires contiguous appearance. |
+| `HasSseEventsInOrder(eventNames, strictOrdering, cancellationToken)` | `Stream` | Async flat form. `strictOrdering: true` requires contiguous. |
+| `HasSseEventsInOrder(eventNames, strictOrdering, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async flat form with `Content-Type` validation (default-on). |
 
 The chain on the `string` receiver composes `WithData(Func<string, bool>)` to narrow by data payload and `AtLeast / AtMost / Exactly` to terminate with a count assertion. The async receivers (`Stream`, `HttpResponseMessage`) use a flat-form entry point because composing an async body read with a synchronous chain is awkward in C#; the async-receiver chain is a candidate for a future release.
 

@@ -233,6 +233,85 @@ public static class SseStreamAndHttpAssertions
         return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
     }
 
+    /// <summary>Asserts the supplied <see cref="Stream"/> contains the named SSE events in order.
+    /// When <paramref name="strictOrdering"/> is <see langword="false"/> (default), other events
+    /// may appear between the named ones; when <see langword="true"/>, the named events must
+    /// appear contiguously.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="eventNames">The event-type names expected in order. An empty array
+    /// trivially passes.</param>
+    /// <param name="strictOrdering">Pass <see langword="true"/> to require the named events to
+    /// appear contiguously with no other events between them.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>An assertion that passes when the order constraint is satisfied; otherwise a
+    /// failing assertion describing the first violation.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
+    /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseEventsInOrder(
+        this Stream stream,
+        System.Collections.Generic.IReadOnlyList<string> eventNames,
+        bool strictOrdering = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(eventNames);
+
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains the named
+    /// SSE events in order. When <paramref name="strictOrdering"/> is <see langword="false"/>
+    /// (default), other events may appear between the named ones; when <see langword="true"/>,
+    /// the named events must appear contiguously.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="eventNames">The event-type names expected in order. An empty array
+    /// trivially passes.</param>
+    /// <param name="strictOrdering">Pass <see langword="true"/> to require the named events to
+    /// appear contiguously with no other events between them.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>An assertion that passes when the order constraint is satisfied; otherwise a
+    /// failing assertion describing the violation or the unexpected content-type.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> or
+    /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseEventsInOrder(
+        this HttpResponseMessage response,
+        System.Collections.Generic.IReadOnlyList<string> eventNames,
+        bool strictOrdering = false,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(eventNames);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return SseEventsInOrderAssertion.Evaluate(System.Array.Empty<SseEvent>(), eventNames, strictOrdering);
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
+    }
+
     private static AssertionResult EvaluateFirstEventWithCancellation(
         string body, int bytesReceived, bool cancelled, string expectedEventName)
     {
