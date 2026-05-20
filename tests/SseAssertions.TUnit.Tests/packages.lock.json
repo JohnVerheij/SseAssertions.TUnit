@@ -134,7 +134,7 @@
         "dependencies": {
           "SseAssertions": "[0.1.0, )",
           "TUnit.Assertions": "[1.45.22, )",
-          "TUnit.Core": "[1.44.39, )"
+          "TUnit.Core": "[1.45.22, )"
         }
       },
       "TUnit.Assertions": {
@@ -145,9 +145,9 @@
       },
       "TUnit.Core": {
         "type": "CentralTransitive",
-        "requested": "[1.44.39, )",
-        "resolved": "1.44.39",
-        "contentHash": "4bObC6RbPpCrUpKvZJ+BpejkouFi+/UxANKIgoPNubW/dncxBDIyjuTLclKmkliEXblPqaermVoYVvuxwRcSBQ=="
+        "requested": "[1.45.22, )",
+        "resolved": "1.45.22",
+        "contentHash": "Ee3UgUa/UVOErcspTDyeOD+iWgH4DDzLf9IMPeVfNSM+vJ1trrWh3DYE3SUgU5cM1KkoZTlU5LT12rUYSXmy7A=="
       }
     }
   }
