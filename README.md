@@ -3,8 +3,8 @@
 [![CI](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/codeql.yml/badge.svg)](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/JohnVerheij/SseAssertions.TUnit/branch/main/graph/badge.svg)](https://codecov.io/gh/JohnVerheij/SseAssertions.TUnit)
-[![NuGet (SseAssertions)](https://img.shields.io/nuget/v/SseAssertions.svg?label=SseAssertions)](https://www.nuget.org/packages/SseAssertions/)
-[![NuGet (SseAssertions.TUnit)](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg?label=SseAssertions.TUnit)](https://www.nuget.org/packages/SseAssertions.TUnit/)
+[![NuGet](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
+[![Downloads](https://img.shields.io/nuget/dt/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -25,11 +25,12 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 - [Entry points](#entry-points)
 - [Failure diagnostics](#failure-diagnostics)
 - [Cookbook](#cookbook)
-- [Out of scope for v0.1.0](#out-of-scope-for-v010)
+- [Out of scope](#out-of-scope)
 - [Design notes](#design-notes)
 - [Stability intent (pre-1.0)](#stability-intent-pre-10)
-- [Roadmap to v0.2.0](#roadmap-to-v020)
-- [Family](#family)
+- [Roadmap](#roadmap)
+- [Family compatibility](#family-compatibility)
+- [Pair with](#pair-with)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -183,8 +184,8 @@ The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the
 body read happens inside the assertion call and the entry point is flat; if you
 need the chain over an HTTP response, read the body into a string in the test
-and assert on the string. The async-receiver chain is a v0.2.0 candidate (see
-[Roadmap](#roadmap-to-v020)).
+and assert on the string. The async-receiver chain is a candidate for a future
+release (see [Roadmap](#roadmap)).
 
 ## Failure diagnostics
 
@@ -376,9 +377,9 @@ public async Task TickEndpoint_EmitsAtLeastTwoTicksInTwoSeconds(CancellationToke
 
 Pattern (a) is the recommended approach for deterministic tests; pattern (b)
 suits timing-sensitive scenarios where the endpoint cannot be modified. True
-streaming async-enumerable mode is a v0.2.0 candidate.
+streaming async-enumerable mode is a candidate for a future release.
 
-## Out of scope for v0.1.0
+## Out of scope
 
 Read this before opening a feature request.
 
@@ -391,9 +392,10 @@ Read this before opening a feature request.
   before parsing; this works against bounded-output endpoints (see [Pattern
   5(a)](#pattern-5-testing-infinite-stream-endpoints-with-cancellation-bounded-reads))
   and combines with cancellation for indefinite streams (Pattern 5(b)). A
-  true streaming `IAsyncEnumerable<SseEvent>` mode is a v0.2.0 candidate.
+  true streaming `IAsyncEnumerable<SseEvent>` mode is a candidate for a future
+  release.
 - **`WithRetryMillis(predicate)`.** Per-event retry-value narrowers are
-  deferred to v0.1.1 / v0.2.0 once consumer demand surfaces.
+  deferred until consumer demand surfaces.
 - **`OfType(name)` chain method.** Redundant with `HasSseEvent(name)`.
 - **`InAnyOrder()` chain method.** Set-semantics adds complexity for marginal
   benefit; the dominant pattern is order-insensitive `AtLeast(n)`.
@@ -467,7 +469,7 @@ WHATWG SSE default).
 `SseFrameParser.Parse(string)` materialises the full `IReadOnlyList<SseEvent>`
 plus every `SseEvent` instance plus every `Data` string eagerly. This is fine
 for v0.1.0's test-time, bounded-buffer scenarios where event counts are small.
-v0.2.0 streaming-mode will also address the all-events-in-memory allocation
+A future streaming-mode will also address the all-events-in-memory allocation
 profile by yielding `SseEvent` instances on demand from the async-enumerable
 receiver path.
 
@@ -485,7 +487,7 @@ This is a 0.x release and the public API may evolve.
 
 The 1.0 milestone signals API stability.
 
-## Roadmap to v0.2.0
+## Roadmap
 
 - Async-receiver chains: bring `WithData`, `WithDataParsedAs<T>`, `AtMost`,
   `Exactly`, `WithRetryMillis` to the `Stream` and `HttpResponseMessage` entry
@@ -497,15 +499,25 @@ The 1.0 milestone signals API stability.
 
 Demand-driven; no fixed timeline.
 
-## Family
+## Family compatibility
 
-Part of an assertion family for TUnit, each package independently versioned, targeting the same .NET TFM at any moment:
+The six assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, and `SseAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
 
-- **[`LogAssertions.TUnit`](https://www.nuget.org/packages/LogAssertions.TUnit/):** fluent log assertions over `Microsoft.Extensions.Logging.Testing.FakeLogCollector`.
-- **[`SnapshotAssertions.TUnit`](https://www.nuget.org/packages/SnapshotAssertions.TUnit/):** text-snapshot assertions for API-surface tests and similar deterministic-string scenarios.
-- **[`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/):** `TimeProvider`-aware time assertions and cross-cutting `.WithinTimeBudget(...)` chain methods.
-- **[`MathAssertions.TUnit`](https://www.nuget.org/packages/MathAssertions.TUnit/):** tolerance comparisons, sequences, statistics, linear algebra, number theory, 3D geometry.
-- **[`JsonAssertions.TUnit`](https://www.nuget.org/packages/JsonAssertions.TUnit/):** fluent JSON assertions over `System.Text.Json`, HTTP response bodies (including RFC 7807 ProblemDetails), and source-generated `JsonSerializerContext` registration.
+For per-package release notes:
+- [LogAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/LogAssertions.TUnit/blob/main/CHANGELOG.md)
+- [TimeAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/CHANGELOG.md)
+- [SnapshotAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/SnapshotAssertions.TUnit/blob/main/CHANGELOG.md)
+- [MathAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/MathAssertions.TUnit/blob/main/CHANGELOG.md)
+- [JsonAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/JsonAssertions.TUnit/blob/main/CHANGELOG.md)
+- [SseAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/SseAssertions.TUnit/blob/main/CHANGELOG.md)
+
+## Pair with
+
+- **[`LogAssertions.TUnit`](https://www.nuget.org/packages/LogAssertions.TUnit/)**: fluent log assertions over `Microsoft.Extensions.Logging.Testing.FakeLogCollector`.
+- **[`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/)**: `TimeProvider`-aware time assertions and cross-cutting `.WithinTimeBudget(...)` chain methods.
+- **[`SnapshotAssertions.TUnit`](https://www.nuget.org/packages/SnapshotAssertions.TUnit/)**: text-snapshot assertions for API-surface tests and similar deterministic-string scenarios. Coexists with Verify; covers the 80% case without coverage friction.
+- **[`MathAssertions.TUnit`](https://www.nuget.org/packages/MathAssertions.TUnit/)**: tolerance-aware fluent assertions over numeric and geometric types (vectors, quaternions, matrices, planes, complex numbers, arrays).
+- **[`JsonAssertions.TUnit`](https://www.nuget.org/packages/JsonAssertions.TUnit/)**: fluent JSON assertions over `System.Text.Json`, HTTP response bodies (including RFC 7807 ProblemDetails), and source-generated `JsonSerializerContext` registration.
 
 ## Contributing
 
