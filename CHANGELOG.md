@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README forward-looking version mentions (`async-receiver chain is a v0.2.0 candidate`, etc.) rewritten as version-agnostic phrasing. Renamed `## Roadmap to v0.2.0` to `## Roadmap` and `## Out of scope for v0.1.0` to `## Out of scope` (items inside remain out of scope across the v0.2.0 cut).
 - Added a Downloads badge and collapsed the two NuGet version badges to a single adapter-only badge, matching the `TimeAssertions.TUnit` banner set.
 - Replaced the single `## Family` section with `## Family compatibility` (release / ApiCompat prose + CHANGELOG cross-links) and `## Pair with` (sibling package descriptions), matching the `TimeAssertions.TUnit` README structure.
+- Extended the Renovate auto-merge `packageRule` to cover `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch`. Closes a gap where SHA-pinned GitHub Actions digest bumps (Renovate's `updateType: "digest"`) sat open with green CI but no auto-merge enabled.
 
 ## [0.1.0] - 2026-05-17: Frame parser, fluent HasSseEvent entry points across three receivers, failure-message extension point
 

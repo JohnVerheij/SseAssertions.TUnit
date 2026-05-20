@@ -28,8 +28,8 @@
       "semanticCommitScope": "github-actions"
     },
     {
-      "description": "Auto-merge patch and minor bumps once CI passes (requires 'Allow auto-merge' to be enabled on the repo). Major bumps stay manual.",
-      "matchUpdateTypes": ["minor", "patch"],
+      "description": "Auto-merge non-major updates (patch, minor, digest, pin, pinDigest, lockFileMaintenance) once CI passes (requires 'Allow auto-merge' to be enabled on the repo). Major bumps stay manual. Digest is included because Renovate tracks SHA-pinned GitHub Actions as updateType 'digest' (not a semver category).",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest", "lockFileMaintenance"],
       "automerge": true,
       "automergeStrategy": "squash",
       "platformAutomerge": true
