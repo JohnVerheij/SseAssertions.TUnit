@@ -169,15 +169,15 @@
         "type": "Project",
         "dependencies": {
           "SseAssertions": "[0.1.0, )",
-          "TUnit.Assertions": "[1.44.39, )",
+          "TUnit.Assertions": "[1.45.22, )",
           "TUnit.Core": "[1.44.39, )"
         }
       },
       "TUnit.Assertions": {
         "type": "CentralTransitive",
-        "requested": "[1.44.39, )",
-        "resolved": "1.44.39",
-        "contentHash": "SViqjhKe85NGKtBmXojZlbt96sMcyHe+M0gz55omyOXKV8vrdGy52KxcKSPA2Bse0sOOj9yqF/J3j/1Aqs3f7A=="
+        "requested": "[1.45.22, )",
+        "resolved": "1.45.22",
+        "contentHash": "tUFBQ9q+9Rife2TJOWINbgTPmOMbMfm0M3R976s/UZpkohqQl64pKXSlP5ZghAR49cXCjiue0ycDqkRc6td7JA=="
       },
       "TUnit.Core": {
         "type": "CentralTransitive",
