@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":timezone(Europe/Amsterdam)",
+    ":semanticCommits"
+  ],
+  "schedule": ["before 4am"],
+  "labels": ["dependencies"],
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "description": "Mirror the prior Dependabot commit convention: `deps(nuget): ...` for NuGet bumps and the TUnit version-literal sync via customManagers (both resolve to the nuget datasource).",
+      "matchManagers": ["nuget", "custom.regex"],
+      "semanticCommitType": "deps",
+      "semanticCommitScope": "nuget"
+    },
+    {
+      "description": "Override for `dotnet-sdk` (tracked via global.json). Renovate's nuget manager surfaces it, but it is the SDK itself, not a NuGet package; tag it as a CI/tooling concern with its own scope so PR titles read `ci(dotnet-sdk): ...`.",
+      "matchPackageNames": ["dotnet-sdk"],
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "dotnet-sdk"
+    },
+    {
+      "description": "Mirror the prior Dependabot commit convention: `ci(github-actions): ...` for workflow action bumps.",
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "github-actions"
+    },
+    {
+      "description": "Auto-merge patch and minor bumps once CI passes (requires 'Allow auto-merge' to be enabled on the repo). Major bumps stay manual.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeStrategy": "squash",
+      "platformAutomerge": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Keep TUnit version literals (root README Requirements line, package README Requirements line, smoketest csproj PackageReference, bug-report Issue Form placeholder) in lockstep with the central TUnit package version. Renovate updates these in the same PR that bumps Directory.Packages.props.",
+      "managerFilePatterns": [
+        "/^README\\.md$/",
+        "/^src/SseAssertions\\.TUnit/README\\.md$/",
+        "/^tests/SseAssertions\\.TUnit\\.SmokeTest/SseAssertions\\.TUnit\\.SmokeTest\\.csproj$/",
+        "/^\\.github/ISSUE_TEMPLATE/bug_report\\.yml$/"
+      ],
+      "matchStrings": [
+        "TUnit (?<currentValue>\\d+\\.\\d+\\.\\d+) or later",
+        "<PackageReference Include=\"TUnit\" Version=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\" />",
+        "label: TUnit version[\\s\\S]*?placeholder: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "TUnit",
+      "datasourceTemplate": "nuget",
+      "versioningTemplate": "semver"
+    }
+  ]
+}
