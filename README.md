@@ -28,7 +28,7 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 - [Out of scope for v0.1.0](#out-of-scope-for-v010)
 - [Design notes](#design-notes)
 - [Stability intent (pre-1.0)](#stability-intent-pre-10)
-- [Roadmap to v0.2.0](#roadmap-to-v020)
+- [Roadmap](#roadmap)
 - [Family](#family)
 - [Contributing](#contributing)
 - [License](#license)
@@ -183,8 +183,8 @@ The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the
 body read happens inside the assertion call and the entry point is flat; if you
 need the chain over an HTTP response, read the body into a string in the test
-and assert on the string. The async-receiver chain is a v0.2.0 candidate (see
-[Roadmap](#roadmap-to-v020)).
+and assert on the string. The async-receiver chain is a candidate for a future
+release (see [Roadmap](#roadmap)).
 
 ## Failure diagnostics
 
@@ -376,7 +376,7 @@ public async Task TickEndpoint_EmitsAtLeastTwoTicksInTwoSeconds(CancellationToke
 
 Pattern (a) is the recommended approach for deterministic tests; pattern (b)
 suits timing-sensitive scenarios where the endpoint cannot be modified. True
-streaming async-enumerable mode is a v0.2.0 candidate.
+streaming async-enumerable mode is a candidate for a future release.
 
 ## Out of scope for v0.1.0
 
@@ -391,9 +391,10 @@ Read this before opening a feature request.
   before parsing; this works against bounded-output endpoints (see [Pattern
   5(a)](#pattern-5-testing-infinite-stream-endpoints-with-cancellation-bounded-reads))
   and combines with cancellation for indefinite streams (Pattern 5(b)). A
-  true streaming `IAsyncEnumerable<SseEvent>` mode is a v0.2.0 candidate.
+  true streaming `IAsyncEnumerable<SseEvent>` mode is a candidate for a future
+  release.
 - **`WithRetryMillis(predicate)`.** Per-event retry-value narrowers are
-  deferred to v0.1.1 / v0.2.0 once consumer demand surfaces.
+  deferred until consumer demand surfaces.
 - **`OfType(name)` chain method.** Redundant with `HasSseEvent(name)`.
 - **`InAnyOrder()` chain method.** Set-semantics adds complexity for marginal
   benefit; the dominant pattern is order-insensitive `AtLeast(n)`.
@@ -467,7 +468,7 @@ WHATWG SSE default).
 `SseFrameParser.Parse(string)` materialises the full `IReadOnlyList<SseEvent>`
 plus every `SseEvent` instance plus every `Data` string eagerly. This is fine
 for v0.1.0's test-time, bounded-buffer scenarios where event counts are small.
-v0.2.0 streaming-mode will also address the all-events-in-memory allocation
+A future streaming-mode will also address the all-events-in-memory allocation
 profile by yielding `SseEvent` instances on demand from the async-enumerable
 receiver path.
 
@@ -485,7 +486,7 @@ This is a 0.x release and the public API may evolve.
 
 The 1.0 milestone signals API stability.
 
-## Roadmap to v0.2.0
+## Roadmap
 
 - Async-receiver chains: bring `WithData`, `WithDataParsedAs<T>`, `AtMost`,
   `Exactly`, `WithRetryMillis` to the `Stream` and `HttpResponseMessage` entry
