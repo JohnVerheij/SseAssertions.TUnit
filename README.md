@@ -163,7 +163,12 @@ rule described here.
   produces a frame with empty `EventName` and no observed data.
 - **Default event name** is `"message"` when no explicit `event:` directive
   appears in the frame. `SseEvent.EventName` is non-nullable; the parser fills
-  in the default.
+  in the default. **Practical consequence for test fixtures**: a `data: ...\n\n`
+  frame with no `event:` directive matches `HasSseEvent("message")`,
+  `HasFirstSseEvent("message")`, and `HasSseEventsInOrder("message")`. This is
+  per spec, not an assertion-library quirk: the WHATWG SSE algorithm dispatches
+  unlabelled frames as `event: message`. Test fixtures that emit unlabelled
+  frames must assert against `"message"`, not `null`.
 - **`retry:` values** must be non-negative ASCII digits; non-numeric values are
   ignored.
 - **Line terminators**: `\n`, `\r\n`, and `\r` are all valid.
