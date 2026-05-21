@@ -11,14 +11,24 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 
 > **Full documentation and roadmap:** [github.com/JohnVerheij/SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 
-## What v0.1.0 ships
+## What v0.2.0 ships
 
 | Entry point | Receiver | Shape |
 |---|---|---|
 | `HasSseEvent(eventName)` | `string` | Chain with `WithData(predicate)`, `AtLeast(n)`, `AtMost(n)`, `Exactly(n)` |
-| `HasSseEvent(eventName, minCount, ct)` | `Stream` | Flat (`Task<AssertionResult>`); cancellation-bounded partial-buffer reads |
-| `HasSseEvent(eventName, minCount, strictContentType, ct)` | `HttpResponseMessage` | Flat; default-on `Content-Type: text/event-stream` validation |
+| `HasSseEvent(eventName, minCount, cancellationToken)` | `Stream` | Flat (`Task<AssertionResult>`); cancellation-bounded partial-buffer reads |
+| `HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | `HttpResponseMessage` | Flat; default-on `Content-Type: text/event-stream` validation |
 | `IsServerSentEventsStream()` | `string` | Lightweight discriminator (carried over from v0.0.1) |
+| `HasSseContentType(strict)` | `HttpResponseMessage` | Header-only discriminator (no body read). `strict: false` (default) matches `text/event-stream` with any parameters; `strict: true` requires the bare media type with no parameters. |
+| `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabelled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
+| `HasFirstSseEvent(eventName, cancellationToken)` | `Stream` | Async; reads to end then asserts first frame. |
+| `HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then asserts first frame. |
+| `HasSseEventsInOrder(eventNames)` | `string` | Chain with `.WithStrictOrdering()`. Default permits gaps between named events; strict mode requires contiguous appearance. |
+| `HasSseEventsInOrder(eventNames, strictOrdering, cancellationToken)` | `Stream` | Async flat form. `strictOrdering: true` requires contiguous. |
+| `HasSseEventsInOrder(eventNames, strictOrdering, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async flat form with `Content-Type` validation (default-on). |
+| `HasSseRetryDirective(millis)` | `string` | Asserts a `retry:` directive is present. `millis: null` accepts any value; `millis: <n>` requires exact match. |
+| `HasSseRetryDirective(millis, cancellationToken)` | `Stream` | Async; same shape. |
+| `HasSseRetryDirective(millis, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then inspects retry directives. |
 
 The chain on the `string` receiver composes `WithData(Func<string, bool>)` to narrow by data payload and `AtLeast / AtMost / Exactly` to terminate with a count assertion. The async receivers (`Stream`, `HttpResponseMessage`) use a flat-form entry point because composing an async body read with a synchronous chain is awkward in C#; the async-receiver chain is a candidate for a future release.
 

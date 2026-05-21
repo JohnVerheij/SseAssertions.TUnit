@@ -43,6 +43,9 @@ coverage*.xml
 coverage*.info
 TestResults/
 
+# reportgenerator merged output (local-only; CI emits its own report)
+coverage-report/
+
 # Tooling
 .idea/
 *.swp

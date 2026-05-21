@@ -41,6 +41,47 @@ public static class SseStreamAndHttpAssertions
 {
     private const string SseMediaType = "text/event-stream";
 
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/>'s <c>Content-Type</c>
+    /// header indicates a Server-Sent Events stream. Header-only check; the response body is
+    /// not read. Use this as a lightweight smoke-test discriminator for SSE endpoints.</summary>
+    /// <param name="response">The HTTP response whose <c>Content-Type</c> to inspect.</param>
+    /// <param name="strict">When <see langword="false"/> (the default), passes when the media
+    /// type is <c>text/event-stream</c> (case-insensitive); trailing parameters like
+    /// <c>; charset=utf-8</c> are ignored. When <see langword="true"/>, requires the full
+    /// <c>Content-Type</c> header to be exactly <c>text/event-stream</c> with no parameters.</param>
+    /// <returns>An assertion that passes when the <c>Content-Type</c> matches per
+    /// <paramref name="strict"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static AssertionResult HasSseContentType(
+        this HttpResponseMessage response,
+        bool strict = false)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        var contentType = response.Content?.Headers?.ContentType;
+        var expectedLine = strict
+            ? "the response to have Content-Type exactly \"text/event-stream\""
+            : "the response to have Content-Type starting with \"text/event-stream\"";
+
+        if (contentType is null)
+        {
+            return AssertionResult.Failed(string.Concat(expectedLine, "\n  but got: <absent>"));
+        }
+
+        var mediaTypeMatches = string.Equals(contentType.MediaType, SseMediaType, StringComparison.OrdinalIgnoreCase);
+        var passes = strict
+            ? mediaTypeMatches && contentType.Parameters.Count is 0
+            : mediaTypeMatches;
+
+        return passes
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(string.Concat(
+                expectedLine,
+                "\n  but got: ",
+                contentType.ToString()));
+    }
+
     /// <summary>Asserts the supplied <see cref="Stream"/> contains at least
     /// <paramref name="minCount"/> SSE frames of type <paramref name="eventName"/>.</summary>
     /// <param name="stream">The SSE stream. Read to its end (or until <paramref name="cancellationToken"/>
@@ -116,6 +157,237 @@ public static class SseStreamAndHttpAssertions
         var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
             stream, encoding, cancellationToken).ConfigureAwait(false);
         return EvaluateAgainstParsedEvents(body, bytesReceived, cancelled, eventName, minCount);
+    }
+
+    /// <summary>Asserts the first SSE frame in <paramref name="response"/>'s body has
+    /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabelled frames match
+    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. Body is read
+    /// in full before parsing; <paramref name="cancellationToken"/> bounds the read.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="eventName">The event-type name expected on the first frame.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>. Set to
+    /// <see langword="false"/> for test mocks that serve SSE without the canonical header.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>A passing assertion when the first parsed frame matches; otherwise a failing
+    /// assertion describing the first event observed, "no events", the unexpected
+    /// content-type diagnostic (when <paramref name="strictContentType"/> is on), or the
+    /// cancellation diagnostic if the read was cut before any frame completed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> or
+    /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasFirstSseEvent(
+        this HttpResponseMessage response,
+        string eventName,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(eventName);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return AssertionResult.Failed(string.Concat(
+                "the first event to be \"",
+                eventName,
+                "\"\n  but the stream contained no events"));
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
+    }
+
+    /// <summary>Asserts the first SSE frame in <paramref name="stream"/> has <c>event:</c>
+    /// equal to <paramref name="eventName"/>. Unlabelled frames match
+    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. The full
+    /// stream is read before parsing; <paramref name="cancellationToken"/> bounds the read.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="eventName">The event-type name expected on the first frame.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>A passing assertion when the first parsed frame matches; otherwise a failing
+    /// assertion describing the first event observed, "no events", or the cancellation
+    /// diagnostic if the read was cut before any frame completed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
+    /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasFirstSseEvent(
+        this Stream stream, string eventName, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(eventName);
+
+        var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
+    }
+
+    /// <summary>Asserts the supplied <see cref="Stream"/> contains the named SSE events in order.
+    /// When <paramref name="strictOrdering"/> is <see langword="false"/> (default), other events
+    /// may appear between the named ones; when <see langword="true"/>, the named events must
+    /// appear contiguously.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="eventNames">The event-type names expected in order. An empty array
+    /// trivially passes.</param>
+    /// <param name="strictOrdering">Pass <see langword="true"/> to require the named events to
+    /// appear contiguously with no other events between them.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>An assertion that passes when the order constraint is satisfied; otherwise a
+    /// failing assertion describing the first violation.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
+    /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseEventsInOrder(
+        this Stream stream,
+        System.Collections.Generic.IReadOnlyList<string> eventNames,
+        bool strictOrdering = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(eventNames);
+
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains the named
+    /// SSE events in order. When <paramref name="strictOrdering"/> is <see langword="false"/>
+    /// (default), other events may appear between the named ones; when <see langword="true"/>,
+    /// the named events must appear contiguously.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="eventNames">The event-type names expected in order. An empty array
+    /// trivially passes.</param>
+    /// <param name="strictOrdering">Pass <see langword="true"/> to require the named events to
+    /// appear contiguously with no other events between them.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>An assertion that passes when the order constraint is satisfied; otherwise a
+    /// failing assertion describing the violation or the unexpected content-type.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> or
+    /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseEventsInOrder(
+        this HttpResponseMessage response,
+        System.Collections.Generic.IReadOnlyList<string> eventNames,
+        bool strictOrdering = false,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(eventNames);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return SseEventsInOrderAssertion.Evaluate(System.Array.Empty<SseEvent>(), eventNames, strictOrdering);
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
+    }
+
+    /// <summary>Asserts the supplied <see cref="Stream"/> contains a <c>retry:</c> directive.
+    /// When <paramref name="millis"/> is supplied, requires at least one frame whose
+    /// <c>retry:</c> value equals it; when <see langword="null"/>, any retry value passes.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
+    /// <see langword="null"/> to accept any value.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirective(
+        this Stream stream, int? millis = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseFormatAssertions.EvaluateRetryDirective(events, millis);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains a
+    /// <c>retry:</c> directive. When <paramref name="millis"/> is supplied, requires at least one
+    /// frame whose <c>retry:</c> value equals it; when <see langword="null"/>, any retry value
+    /// passes.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
+    /// <see langword="null"/> to accept any value.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found, or
+    /// fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
+    /// is on and the header is wrong.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirective(
+        this HttpResponseMessage response,
+        int? millis = null,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return SseFormatAssertions.EvaluateRetryDirective(System.Array.Empty<SseEvent>(), millis);
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var events = SseFrameParser.Parse(body);
+        return SseFormatAssertions.EvaluateRetryDirective(events, millis);
+    }
+
+    private static AssertionResult EvaluateFirstEventWithCancellation(
+        string body, int bytesReceived, bool cancelled, string expectedEventName)
+    {
+        var events = SseFrameParser.Parse(body);
+        if (events.Count is 0 && cancelled)
+        {
+            return AssertionResult.Failed(SseFailureMessage.CancellationCutRead(bytesReceived, 0, body));
+        }
+
+        return SseFormatAssertions.EvaluateFirstEvent(events, expectedEventName);
     }
 
     private static AssertionResult EvaluateAgainstParsedEvents(
