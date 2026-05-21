@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Removed `paths-ignore` from `.github/workflows/ci.yml` so the `Build, test & pack` required check always reports a status. The previous filter excluded `**.md`, `LICENSE`, `.gitignore`, and `.editorconfig` from triggering CI; combined with branch protection's `Required` flag on `Build, test & pack`, this left docs-only PRs stuck in `Expected — Waiting for status to be reported` and unmergeable. The trade-off is a few minutes of CI per docs-only PR; on a free-tier public repo the cost is zero. Sibling repos receive the same fix as part of their open `chore/infra-family-consistency-sweep` PRs (or a dedicated PR for `TimeAssertions.TUnit`).
+- Dropped drift-prone own-version anchors from packed READMEs (`src/SseAssertions.TUnit/README.md`, `src/SseAssertions/README.md`). `## What v0.2.0 ships` and `## What v0.1.0 ships` headings are now `## What ships`; `(carried over from v0.0.1)` parenthetical removed from the entry-points table. Historical "added in vX.Y" markers (none in this repo) are not affected by the sweep. The CHANGELOG remains the single source of truth for what shipped when.
+
 ## [0.2.0] - 2026-05-20: HasSseContentType, HasFirstSseEvent, HasSseEventsInOrder, HasSseRetryDirective
 
 Minor release. Adds four new assertions covering common SSE smoke-test patterns: a header-only Content-Type discriminator (`HasSseContentType`), a first-event check (`HasFirstSseEvent`), an ordered-sequence check with optional contiguous mode (`HasSseEventsInOrder` + `.WithStrictOrdering()`), and a `retry:`-directive check (`HasSseRetryDirective`). Two README accuracy fixes for the v0.1.0 entry-points table; expanded WHATWG default-event-name documentation. No breaking changes; v0.1.0 ApiCompat baseline preserved.
