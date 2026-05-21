@@ -364,7 +364,7 @@ await Assert.That(responseBody).HasOrderShippedFor(orderId: 42);
 ### Pattern 5: Testing infinite-stream endpoints (with cancellation-bounded reads)
 
 Production SSE endpoints typically stream indefinitely with heartbeats. The
-v0.1.0 buffer-mode read works against bounded-output endpoints; for indefinite
+buffer-mode read works against bounded-output endpoints; for indefinite
 streams you have two approaches:
 
 **(a) Test-mode query parameter** - design the endpoint with a finite-event mode:
@@ -377,7 +377,7 @@ streams you have two approaches:
 **(b) Cancellation-bounded read** - let the test cancel after a known emission
 window. The chain captures the cancellation, parses whatever was buffered before
 the cut, and asserts against the partial result. No try/catch needed; the
-cancellation is part of the chain semantics at v0.1.0:
+cancellation is part of the chain semantics:
 
 ```csharp
 [Test]
@@ -403,7 +403,7 @@ Read this before opening a feature request.
   only. The `Stream` and `HttpResponseMessage` receivers use a flat
   `HasSseEvent(eventName, minCount, ...)` entry point because composing an
   async body read with a synchronous fluent chain is awkward in C#.
-- **Streaming async-enumerable mode.** v0.1.0 reads the entire response body
+- **Streaming async-enumerable mode.** The assertion reads the entire response body
   before parsing; this works against bounded-output endpoints (see [Pattern
   5(a)](#pattern-5-testing-infinite-stream-endpoints-with-cancellation-bounded-reads))
   and combines with cancellation for indefinite streams (Pattern 5(b)). A
@@ -420,7 +420,7 @@ Read this before opening a feature request.
 - **Server-side SSE production helpers.** This is an assertion library, not a
   producer.
 - **Reconnection / last-event-id replay logic.** Consumer responsibility.
-- **`xUnit` / `NUnit` / `MSTest` adapters.** TUnit only at v0.1.0.
+- **`xUnit` / `NUnit` / `MSTest` adapters.** TUnit only.
 
 ## Design notes
 
@@ -483,7 +483,7 @@ WHATWG SSE default).
 
 `SseFrameParser.Parse(string)` materialises the full `IReadOnlyList<SseEvent>`
 plus every `SseEvent` instance plus every `Data` string eagerly. This is fine
-for v0.1.0's test-time, bounded-buffer scenarios where event counts are small.
+for test-time, bounded-buffer scenarios where event counts are small.
 A future streaming-mode will also address the all-events-in-memory allocation
 profile by yielding `SseEvent` instances on demand from the async-enumerable
 receiver path.
