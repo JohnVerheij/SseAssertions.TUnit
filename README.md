@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/codeql.yml/badge.svg)](https://github.com/JohnVerheij/SseAssertions.TUnit/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/JohnVerheij/SseAssertions.TUnit/badge)](https://scorecard.dev/viewer/?uri=github.com/JohnVerheij/SseAssertions.TUnit)
 [![codecov](https://codecov.io/gh/JohnVerheij/SseAssertions.TUnit/branch/main/graph/badge.svg)](https://codecov.io/gh/JohnVerheij/SseAssertions.TUnit)
 [![NuGet](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![Downloads](https://img.shields.io/nuget/dt/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
