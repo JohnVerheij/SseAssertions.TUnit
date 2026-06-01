@@ -184,6 +184,12 @@ public static class SseFormatAssertions
             {
                 firstData = i;
             }
+
+            if (firstRetry >= 0 && firstData >= 0)
+            {
+                // Both first-occurrences located; later lines cannot change the outcome.
+                break;
+            }
         }
 
         if (firstRetry < 0)

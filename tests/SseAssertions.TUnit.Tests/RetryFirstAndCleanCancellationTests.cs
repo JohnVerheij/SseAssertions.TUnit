@@ -174,6 +174,21 @@ internal sealed class RetryFirstAndCleanCancellationTests
     }
 
     [Test]
+    public async Task EndsCleanly_TokenDrivenCancellation_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        // The read blocks until its own token is canceled, so this passes only if the assertion
+        // forwards the caller's token to ReadAsync. A regression that dropped the token would leave
+        // the infinite read hanging and trip the class timeout instead of passing cleanly.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        using var stream = new BlockUntilCanceledStream();
+
+        await Assert.That(stream).EndsCleanlyOnCancellation(cts.Token);
+    }
+
+    [Test]
     public async Task EndsCleanly_IOException_Fails(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -216,6 +231,40 @@ internal sealed class RetryFirstAndCleanCancellationTests
         var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(body)));
         content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    /// <summary>A <see cref="Stream"/> whose read blocks until the forwarded token is canceled, for
+    /// verifying that <c>EndsCleanlyOnCancellation</c> propagates the caller's token to the read.</summary>
+    private sealed class BlockUntilCanceledStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Flush()
+        {
+            // No-op: nothing is buffered.
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     /// <summary>A <see cref="Stream"/> whose reads always throw a configured exception, for
