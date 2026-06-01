@@ -195,6 +195,10 @@ rule described here.
 | `string` | `.HasSseRetryDirective(millis)` | flat - `AssertionResult` | - |
 | `Stream` | `.HasSseRetryDirective(millis, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseRetryDirective(millis, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `string` | `.HasSseRetryDirectiveFirst()` | flat - `AssertionResult` | - |
+| `Stream` | `.HasSseRetryDirectiveFirst(cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasSseRetryDirectiveFirst(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `Stream` | `.EndsCleanlyOnCancellation(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
 The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the

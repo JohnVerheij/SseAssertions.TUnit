@@ -378,6 +378,117 @@ public static class SseStreamAndHttpAssertions
         return SseFormatAssertions.EvaluateRetryDirective(events, millis);
     }
 
+    /// <summary>Asserts the supplied <see cref="Stream"/> sends a <c>retry:</c> directive before
+    /// any data-bearing event: the server set the reconnection time before streaming any payload.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>An assertion that passes when a <c>retry:</c> directive precedes the first data event.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
+        this Stream stream, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body sends a <c>retry:</c>
+    /// directive before any data-bearing event.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>An assertion that passes when a <c>retry:</c> directive precedes the first data
+    /// event, or fails with the unexpected-content-type diagnostic when
+    /// <paramref name="strictContentType"/> is on and the header is wrong.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
+        this HttpResponseMessage response,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return SseFormatAssertions.EvaluateRetryDirectiveFirst(string.Empty);
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
+    }
+
+    /// <summary>Asserts the supplied <see cref="Stream"/> tears down cleanly when its read is
+    /// cancelled: the read either completes normally or surfaces cooperative cancellation
+    /// (<see cref="OperationCanceledException"/>), but not a transport exception
+    /// (<see cref="IOException"/>, <see cref="HttpRequestException"/>). Pass a token that fires
+    /// mid-stream; the assertion drains and discards content, checking only teardown behaviour.</summary>
+    /// <param name="stream">The SSE stream whose cancellation teardown to verify.</param>
+    /// <param name="cancellationToken">The token expected to cancel the read mid-stream.</param>
+    /// <returns>A passing assertion when the read ends cleanly; otherwise a failing assertion
+    /// naming the transport exception that surfaced.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> EndsCleanlyOnCancellation(
+        this Stream stream, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        return await DrainExpectingCleanCancellationAsync(stream, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<AssertionResult> DrainExpectingCleanCancellationAsync(
+        Stream stream, CancellationToken cancellationToken)
+    {
+        const int BufferSize = 4096;
+        var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+        try
+        {
+            try
+            {
+                int read;
+                do
+                {
+                    read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+                }
+                while (read > 0);
+            }
+            catch (OperationCanceledException)
+            {
+                // Cooperative cancellation is the clean teardown signal.
+            }
+
+            return AssertionResult.Passed;
+        }
+        catch (IOException ex)
+        {
+            return AssertionResult.Failed(SseFailureMessage.UncleanCancellation(ex));
+        }
+        catch (HttpRequestException ex)
+        {
+            return AssertionResult.Failed(SseFailureMessage.UncleanCancellation(ex));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
     private static AssertionResult EvaluateFirstEventWithCancellation(
         string body, int bytesReceived, bool cancelled, string expectedEventName)
     {
