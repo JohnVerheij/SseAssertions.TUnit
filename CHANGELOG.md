@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-02: retry-first and clean-cancellation stream assertions
+
+Feature release. Adds two SSE-correctness refinements on the live-stream surface: `HasSseRetryDirectiveFirst()` asserts the server sent a `retry:` directive before any data, and `EndsCleanlyOnCancellation()` asserts a cancelled read tears down cooperatively rather than surfacing a transport exception. Also folds in the accumulated CI hardening and docs hygiene from the unreleased line.
+
+### Added
+
+- **`Assert.That(response).HasSseRetryDirectiveFirst()`** (with `Stream` and `string` receivers) asserts that the SSE stream sends a `retry:` directive before any `data:` field. A `retry:` directive is a reconnection-time hint, not a named event, so the order is checked at the wire-field level: a retry-only frame carries no data and is not dispatched as a parsed event, so it would otherwise be invisible to an event-list check. Source-generated via `[GenerateAssertion]`.
+- **`Assert.That(stream).EndsCleanlyOnCancellation(cancellationToken)`** asserts that cancelling the read mid-stream tears down via cooperative cancellation (the read completes, or raises `OperationCanceledException`) rather than surfacing a transport exception (`IOException`, `HttpRequestException`). The assertion drains and discards content, checking only teardown behaviour.
+- **`SseFailureMessage.UncleanCancellation(Exception)`** renders the failure message for `EndsCleanlyOnCancellation`, naming the transport exception that surfaced. Public, matching the existing failure-message factory surface for consumer-authored typed SSE assertions.
+
 ### Changed
 
 - Removed `paths-ignore` from `.github/workflows/ci.yml` so the `Build, test & pack` required check always reports a status. The previous filter excluded `**.md`, `LICENSE`, `.gitignore`, and `.editorconfig` from triggering CI; combined with branch protection's `Required` flag on `Build, test & pack`, this left docs-only PRs stuck in `Expected — Waiting for status to be reported` and unmergeable. The trade-off is a few minutes of CI per docs-only PR; on a free-tier public repo the cost is zero. Sibling repos receive the same fix as part of their open `chore/infra-family-consistency-sweep` PRs (or a dedicated PR for `TimeAssertions.TUnit`).
@@ -103,7 +113,8 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/releases/tag/v0.0.1

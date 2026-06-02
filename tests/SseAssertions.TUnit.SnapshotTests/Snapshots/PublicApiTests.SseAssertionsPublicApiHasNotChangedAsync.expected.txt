@@ -27,6 +27,7 @@ namespace SseAssertions
         public static string EventNotFound(string eventName, System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> available) { }
         public static string ParseFailure(string body) { }
         public static string RetryMillisPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<int?> retryValues) { }
+        public static string UncleanCancellation(System.Exception exception) { }
         public static string UnexpectedContentType(string? actualContentType) { }
     }
     public static class SseFormat

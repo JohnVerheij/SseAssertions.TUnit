@@ -146,4 +146,80 @@ public static class SseFormatAssertions
         }
         return AssertionResult.Failed(sb.ToString());
     }
+
+    /// <summary>Asserts the SSE stream parsed from <paramref name="body"/> sends a <c>retry:</c>
+    /// directive before any data-bearing event. A <c>retry:</c> directive is a reconnection-time
+    /// hint, not a named event, so this is distinct from <c>HasFirstSseEvent</c>: the contract is
+    /// "the server set the reconnection time before streaming any payload".</summary>
+    /// <param name="body">The SSE wire-format body to inspect.</param>
+    /// <returns>A passing assertion when a <c>retry:</c> directive precedes the first data event;
+    /// otherwise a failing assertion (no retry directive at all, or a data event came first).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static AssertionResult HasSseRetryDirectiveFirst(this string body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        return EvaluateRetryDirectiveFirst(body);
+    }
+
+    internal static AssertionResult EvaluateRetryDirectiveFirst(string body)
+    {
+        // Wire-level check: the first `retry:` field line must precede the first `data:` field
+        // line. A retry-only frame carries no data and is not dispatched as a parsed event (the
+        // WHATWG parser drops dispatch-less frames), so the order is read from the raw field lines
+        // rather than the event list. Line endings normalize to LF first so \r\n / \r / \n split
+        // identically.
+        var normalized = body.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var firstRetry = -1;
+        var firstData = -1;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (firstRetry < 0 && IsField(lines[i], "retry"))
+            {
+                firstRetry = i;
+            }
+
+            if (firstData < 0 && IsField(lines[i], "data"))
+            {
+                firstData = i;
+            }
+
+            if (firstRetry >= 0 && firstData >= 0)
+            {
+                // Both first-occurrences located; later lines cannot change the outcome.
+                break;
+            }
+        }
+
+        if (firstRetry < 0)
+        {
+            return AssertionResult.Failed(
+                "the stream to send a retry directive before any data\n  but no retry directive was found");
+        }
+
+        if (firstData >= 0 && firstData < firstRetry)
+        {
+            return AssertionResult.Failed(
+                "the stream to send a retry directive before any data\n  but a data field appeared before the first retry directive");
+        }
+
+        return AssertionResult.Passed;
+    }
+
+    /// <summary>Reports whether <paramref name="line"/> is an SSE field line for
+    /// <paramref name="fieldName"/> (its field name, the text before the first colon, equals
+    /// <paramref name="fieldName"/>). Comment lines (leading <c>:</c>) and blank lines are not
+    /// fields.</summary>
+    private static bool IsField(ReadOnlySpan<char> line, ReadOnlySpan<char> fieldName)
+    {
+        if (line.Length is 0 || line[0] is ':')
+        {
+            return false;
+        }
+
+        var colon = line.IndexOf(':');
+        var name = colon < 0 ? line : line[..colon];
+        return name.SequenceEqual(fieldName);
+    }
 }

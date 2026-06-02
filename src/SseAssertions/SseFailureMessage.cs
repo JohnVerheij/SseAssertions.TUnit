@@ -244,6 +244,22 @@ public static class SseFailureMessage
             TruncateBody(partialBodyExcerpt));
     }
 
+    /// <summary>Produces the failure message for a stream that did not tear down cleanly when its
+    /// read was cancelled: a transport exception surfaced instead of cooperative cancellation.</summary>
+    /// <param name="exception">The exception that surfaced from the cancelled read.</param>
+    /// <returns>A failure message naming the exception type and message.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="exception"/> is <see langword="null"/>.</exception>
+    public static string UncleanCancellation(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        return string.Concat(
+            "the stream to end cleanly when its read was cancelled\n  but a ",
+            exception.GetType().Name,
+            " surfaced instead of cooperative cancellation: ",
+            exception.Message);
+    }
+
     private static string TruncateData(string data)
         => data.Length <= DataTruncationLimit ? data : string.Concat(data.AsSpan(0, DataTruncationLimit), TruncationSuffix);
 

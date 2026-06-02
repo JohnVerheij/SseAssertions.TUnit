@@ -17,7 +17,7 @@ Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test pro
 |---|---|
 | `SseEvent` (public record) | Stable public data type. `EventName` (non-nullable, defaults to `"message"` per the WHATWG spec when no `event:` directive appears), `Data` (non-null), `Id?`, `RetryMillis?`. |
 | `SseFrameParser.Parse(string)` | WHATWG / W3C SSE wire-format parser; handles all three line terminators, strips a UTF-8 BOM at offset 0, ignores comment lines, accumulates multi-line data with `\n` joins. |
-| `SseFailureMessage` | Curated failure-message factories (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`) for consumer-authored typed SSE assertions. |
+| `SseFailureMessage` | Curated failure-message factories (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`, `UncleanCancellation`) for consumer-authored typed SSE assertions. |
 | `SseCountComparison` (public enum) | Comparison label (`AtLeast`, `AtMost`, `Exactly`) carried by `EventCountMismatch`. |
 | `SseFormat.LooksLikeServerSentEvents(string)` | Lightweight discriminator. |
 
