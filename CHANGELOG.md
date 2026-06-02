@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-06-01: retry-first and clean-cancellation stream assertions
+## [0.3.0] - 2026-06-02: retry-first and clean-cancellation stream assertions
 
 Feature release. Adds two SSE-correctness refinements on the live-stream surface: `HasSseRetryDirectiveFirst()` asserts the server sent a `retry:` directive before any data, and `EndsCleanlyOnCancellation()` asserts a cancelled read tears down cooperatively rather than surfacing a transport exception. Also folds in the accumulated CI hardening and docs hygiene from the unreleased line.
 
