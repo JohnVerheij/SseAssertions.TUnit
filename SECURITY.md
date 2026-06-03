@@ -51,9 +51,9 @@ A **coordinated disclosure** (public CVE filing + advisory + patched release) is
 
 | Version line | Status | Receives security fixes |
 |---|---|---|
-| `0.3.x` | **Current** | ✅ Yes |
-| `0.2.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
-| `< 0.2.0` | Pre-stable | ❌ No |
+| `0.4.x` | **Current** | ✅ Yes |
+| `0.3.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
+| `< 0.3.0` | Pre-stable | ❌ No |
 
 Both packages (`SseAssertions` and `SseAssertions.TUnit`) version in lockstep, so each line covers both. This table is updated alongside each release that bumps the current line. Coverage of older lines for security-only fixes follows the [.NET LTS / STS rotation](CONVENTIONS.md#tfm-policy): when the package's TFM changes at a major-version boundary, security fixes for the previous line continue to ship for one minor cycle.
 
@@ -66,10 +66,9 @@ In scope:
 - The shipped SBOMs (SPDX 3.0 in nupkg, CycloneDX 1.6 sibling artifact)
 - The SLSA build-provenance attestations and Sigstore-signed SBOM attestations
 - Realistic in-product attack surface examples:
-  - Path traversal via a crafted snapshot name or explicit file path
-  - Unbounded memory or CPU consumption from a crafted baseline file
-  - Information disclosure through assertion failure messages that escapes intended scope
-  - Regex-pattern denial of service through a custom `Scrubbers.Pattern(...)` consumer (note: the built-ins use `RegexOptions.NonBacktracking`)
+  - Unbounded memory or CPU consumption while parsing a crafted or malformed SSE stream (e.g. an oversized frame, a never-terminating field line, or a body that never emits the frame-separator double newline)
+  - Information disclosure through assertion failure messages that escapes intended scope (e.g. an untrusted response body excerpt rendered in a diagnostic beyond the pinned truncation limits)
+  - Mishandling of an untrusted `HttpResponseMessage` body or `Content-Type` charset that leads to incorrect decoding or excessive allocation while reading the response stream
 
 Out of scope (please report upstream instead):
 

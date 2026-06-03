@@ -155,6 +155,34 @@ internal sealed class RetryFirstAndCleanCancellationTests
             .Throws<ArgumentNullException>();
     }
 
+    [Test]
+    public async Task String_NamedRetryEventNotDirective_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // A named `event: retry` with a `data:` payload is a dispatched event, not a wire-level
+        // `retry:` directive. The assertion is spec-strict: it scans for the `retry:` field, finds
+        // none, and the data field makes the stream fail.
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That("event: retry\ndata: 5000\n\n").HasSseRetryDirectiveFirst();
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("no retry directive was found");
+    }
+
+    [Test]
+    public async Task Stream_NamedRetryEventNotDirective_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var stream = ToStream("event: retry\ndata: 5000\n\n");
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(stream).HasSseRetryDirectiveFirst(cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("no retry directive was found");
+    }
+
     // ---- EndsCleanlyOnCancellation ----
 
     [Test]
@@ -224,7 +252,121 @@ internal sealed class RetryFirstAndCleanCancellationTests
             .Throws<ArgumentNullException>();
     }
 
+    // ---- EndsCleanlyOnCancellation (HttpResponseMessage) ----
+
+    [Test]
+    public async Task Http_EndsCleanly_NormalEof_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse(RetryThenData, "text/event-stream");
+        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_TokenDrivenCancellation_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        // The body read blocks until its own token is canceled, so this passes only if the assertion
+        // forwards the caller's token to ReadAsStreamAsync / ReadAsync.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        using var response = BuildResponseFromStream(new BlockUntilCanceledStream(), "text/event-stream");
+
+        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: cts.Token);
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_OperationCanceled_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponseFromStream(new ThrowingStream(new OperationCanceledException()), "text/event-stream");
+        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_IOException_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponseFromStream(new ThrowingStream(new IOException("connection reset")), "text/event-stream");
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("IOException");
+        await Assert.That(ex.Message).Contains("end cleanly");
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_HttpRequestException_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponseFromStream(new ThrowingStream(new HttpRequestException("transport error")), "text/event-stream");
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("HttpRequestException");
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_NonSseStrictDefault_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse(RetryThenData, "application/json");
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("text/event-stream");
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_NonSseStrictFalse_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse(RetryThenData, "application/json");
+        await Assert.That(response).EndsCleanlyOnCancellation(strictContentType: false, cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_NullContentStrictFalse_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // Force a null Content (HttpResponseMessage defaults to EmptyContent) to exercise the
+        // null-content guard: with no body there is nothing to read, so teardown is trivially clean.
+        using var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = null };
+        await Assert.That(response).EndsCleanlyOnCancellation(strictContentType: false, cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_EmptyContentStrictFalse_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = new HttpResponseMessage(HttpStatusCode.OK);
+        await Assert.That(response).EndsCleanlyOnCancellation(strictContentType: false, cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_Null_Throws(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        HttpResponseMessage nullResponse = null!;
+        await Assert.That(async () => await nullResponse.EndsCleanlyOnCancellation(cancellationToken: ct))
+            .Throws<ArgumentNullException>();
+    }
+
     private static MemoryStream ToStream(string body) => new(Encoding.UTF8.GetBytes(body));
+
+    private static HttpResponseMessage BuildResponseFromStream(Stream body, string contentType)
+    {
+        var content = new StreamContent(body);
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
 
     private static HttpResponseMessage BuildResponse(string body, string contentType)
     {

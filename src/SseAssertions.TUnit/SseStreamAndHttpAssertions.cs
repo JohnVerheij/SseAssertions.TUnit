@@ -452,6 +452,47 @@ public static class SseStreamAndHttpAssertions
         return await DrainExpectingCleanCancellationAsync(stream, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body tears down cleanly when
+    /// its read is cancelled: the read either completes normally or surfaces cooperative
+    /// cancellation (<see cref="OperationCanceledException"/>), but not a transport exception
+    /// (<see cref="IOException"/>, <see cref="HttpRequestException"/>). Pass a token that fires
+    /// mid-stream; the assertion drains and discards content, checking only teardown behaviour.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body whose cancellation teardown
+    /// to verify.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>. Set to
+    /// <see langword="false"/> for test mocks that serve SSE without the canonical header.</param>
+    /// <param name="cancellationToken">The token expected to cancel the read mid-stream.</param>
+    /// <returns>A passing assertion when the read ends cleanly; otherwise a failing assertion
+    /// naming the transport exception that surfaced, or the unexpected-content-type diagnostic
+    /// when <paramref name="strictContentType"/> is on and the header is wrong.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> EndsCleanlyOnCancellation(
+        this HttpResponseMessage response,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return AssertionResult.Passed;
+        }
+
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await DrainExpectingCleanCancellationAsync(stream, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async Task<AssertionResult> DrainExpectingCleanCancellationAsync(
         Stream stream, CancellationToken cancellationToken)
     {

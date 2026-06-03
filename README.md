@@ -172,6 +172,11 @@ rule described here.
   frames must assert against `"message"`, not `null`.
 - **`retry:` values** must be non-negative ASCII digits; non-numeric values are
   ignored.
+- **`retry:` is a directive field, not a named event.** `HasSseRetryDirectiveFirst`
+  matches the WHATWG `retry:` directive field, not an `event: retry` named event.
+  A stream that emits `event: retry` followed by a `data:` field carries no `retry:`
+  field line, so the assertion fails ("no retry directive was found"). The check is
+  spec-strict and reads the wire-level field, not the dispatched event name.
 - **Line terminators**: `\n`, `\r\n`, and `\r` are all valid.
 - **UTF-8 BOM** at byte offset 0 is consumed and ignored. A BOM-like character
   appearing mid-stream is treated as a regular character of its containing
@@ -199,6 +204,7 @@ rule described here.
 | `Stream` | `.HasSseRetryDirectiveFirst(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseRetryDirectiveFirst(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `Stream` | `.EndsCleanlyOnCancellation(cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.EndsCleanlyOnCancellation(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
 The chain pattern is available on the `string` receiver, where the body is
 already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the

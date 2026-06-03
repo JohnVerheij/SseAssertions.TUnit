@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-04: HttpResponseMessage receiver for EndsCleanlyOnCancellation
+
+Minor release. Adds the `HttpResponseMessage` receiver to `EndsCleanlyOnCancellation`, so a cancellation-teardown assertion can run directly against an HTTP response without first extracting the body stream. The `0.3.0` retry-first surface already covered `string`, `Stream`, and `HttpResponseMessage`; this release closes the matching gap for the clean-cancellation assertion. Purely additive; the `0.3.0` ApiCompat baseline is preserved.
+
+### Added
+
+- **`Assert.That(response).EndsCleanlyOnCancellation(strictContentType, cancellationToken)`** on `HttpResponseMessage`. Reads the response body via `ReadAsStreamAsync(cancellationToken)` and asserts the read tears down via cooperative cancellation (the read completes, or raises `OperationCanceledException`) rather than surfacing a transport exception (`IOException`, `HttpRequestException`). Mirrors the existing `Stream` overload's teardown classification and the content-type handling of the other `HttpResponseMessage` receivers: `strictContentType` defaults to `true` (fails with the unexpected-content-type diagnostic when `Content-Type`'s media type is not `text/event-stream`); a null `Content` passes. Source-generated via `[GenerateAssertion]`.
+
+### Changed
+
+- Bumped `PackageValidationBaselineVersion` from `0.2.0` to `0.3.0` on both packages so ApiCompat strict-mode validates `0.4.0` against the most recently published baseline. The `0.4.0` change is purely additive; no `CompatibilitySuppressions.xml` updates required.
+- README and packed-README clarification: `HasSseRetryDirectiveFirst` matches the WHATWG `retry:` directive field, not an `event: retry` named event. A stream that emits `event: retry` followed by a `data:` field carries no `retry:` field line, so the assertion correctly fails ("no retry directive was found"). The check is spec-strict and reads the wire-level field, not the dispatched event name.
+
 ## [0.3.0] - 2026-06-02: retry-first and clean-cancellation stream assertions
 
 Feature release. Adds two SSE-correctness refinements on the live-stream surface: `HasSseRetryDirectiveFirst()` asserts the server sent a `retry:` directive before any data, and `EndsCleanlyOnCancellation()` asserts a cancelled read tears down cooperatively rather than surfacing a transport exception. Also folds in the accumulated CI hardening and docs hygiene from the unreleased line.
@@ -113,7 +126,8 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/releases/tag/v0.4.0
 [0.3.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.0.1...v0.1.0
