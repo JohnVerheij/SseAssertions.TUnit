@@ -39,6 +39,8 @@ namespace SseAssertions.TUnit
         [TUnit.Assertions.Attributes.GenerateAssertion]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> EndsCleanlyOnCancellation(this System.IO.Stream stream, System.Threading.CancellationToken cancellationToken = default) { }
         [TUnit.Assertions.Attributes.GenerateAssertion]
+        public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> EndsCleanlyOnCancellation(this System.Net.Http.HttpResponseMessage response, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasFirstSseEvent(this System.IO.Stream stream, string eventName, System.Threading.CancellationToken cancellationToken = default) { }
         [TUnit.Assertions.Attributes.GenerateAssertion]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasFirstSseEvent(this System.Net.Http.HttpResponseMessage response, string eventName, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
@@ -64,6 +66,12 @@ namespace SseAssertions.TUnit
 }
 namespace TUnit.Assertions.Extensions
 {
+    public sealed class HttpResponseMessage_EndsCleanlyOnCancellation_Bool_CancellationToken_Assertion : TUnit.Assertions.Core.Assertion<System.Net.Http.HttpResponseMessage>
+    {
+        public HttpResponseMessage_EndsCleanlyOnCancellation_Bool_CancellationToken_Assertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, bool strictContentType, System.Threading.CancellationToken cancellationToken) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Net.Http.HttpResponseMessage> metadata) { }
+        protected override string GetExpectation() { }
+    }
     public sealed class HttpResponseMessage_HasFirstSseEvent_String_Bool_CancellationToken_Assertion : TUnit.Assertions.Core.Assertion<System.Net.Http.HttpResponseMessage>
     {
         public HttpResponseMessage_HasFirstSseEvent_String_Bool_CancellationToken_Assertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, string eventName, bool strictContentType, System.Threading.CancellationToken cancellationToken) { }
@@ -120,6 +128,9 @@ namespace TUnit.Assertions.Extensions
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.Stream_EndsCleanlyOnCancellation_CancellationToken_Assertion EndsCleanlyOnCancellation<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.IO.Stream { }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.HttpResponseMessage_EndsCleanlyOnCancellation_Bool_CancellationToken_Assertion EndsCleanlyOnCancellation<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("strictContentType")] string? strictContentTypeExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
+            where TActual : System.Net.Http.HttpResponseMessage { }
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.Stream_HasFirstSseEvent_String_CancellationToken_Assertion HasFirstSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.IO.Stream { }

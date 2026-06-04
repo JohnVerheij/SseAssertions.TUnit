@@ -449,11 +449,59 @@ public static class SseStreamAndHttpAssertions
         this Stream stream, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        return await DrainExpectingCleanCancellationAsync(stream, cancellationToken).ConfigureAwait(false);
+        return await DrainExpectingCleanCancellationAsync(
+            _ => new ValueTask<Stream>(stream), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body tears down cleanly when
+    /// its read is cancelled: the read either completes normally or surfaces cooperative
+    /// cancellation (<see cref="OperationCanceledException"/>), but not a transport exception
+    /// (<see cref="IOException"/>, <see cref="HttpRequestException"/>). Pass a token that fires
+    /// mid-stream; the assertion drains and discards content, checking only teardown behaviour.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body whose cancellation teardown
+    /// to verify.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>. Set to
+    /// <see langword="false"/> for test mocks that serve SSE without the canonical header.</param>
+    /// <param name="cancellationToken">The token expected to cancel the read mid-stream.</param>
+    /// <returns>A passing assertion when the read ends cleanly; otherwise a failing assertion
+    /// naming the transport exception that surfaced, or the unexpected-content-type diagnostic
+    /// when <paramref name="strictContentType"/> is on and the header is wrong.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> EndsCleanlyOnCancellation(
+        this HttpResponseMessage response,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        var content = response.Content;
+
+        if (strictContentType)
+        {
+            var mediaType = content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (content is null)
+        {
+            return AssertionResult.Passed;
+        }
+
+        // Acquire the body stream inside the drain's cancellation classification: a token that
+        // fires during ReadAsStreamAsync must be the same clean-teardown signal as one that fires
+        // during the read loop, not an exception that escapes the assertion.
+        return await DrainExpectingCleanCancellationAsync(
+            ct => new ValueTask<Stream>(content.ReadAsStreamAsync(ct)),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<AssertionResult> DrainExpectingCleanCancellationAsync(
-        Stream stream, CancellationToken cancellationToken)
+        Func<CancellationToken, ValueTask<Stream>> streamFactory, CancellationToken cancellationToken)
     {
         const int BufferSize = 4096;
         var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
@@ -461,6 +509,7 @@ public static class SseStreamAndHttpAssertions
         {
             try
             {
+                var stream = await streamFactory(cancellationToken).ConfigureAwait(false);
                 int read;
                 do
                 {
@@ -470,7 +519,8 @@ public static class SseStreamAndHttpAssertions
             }
             catch (OperationCanceledException)
             {
-                // Cooperative cancellation is the clean teardown signal.
+                // Cooperative cancellation at any point in the read pipeline (acquiring the body
+                // stream or reading it) is the clean teardown signal.
             }
 
             return AssertionResult.Passed;
