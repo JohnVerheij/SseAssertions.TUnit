@@ -268,12 +268,12 @@ to find at least 5 event(s) of type "tick"
   but observed: 2 event(s) of type "tick"
 ... and a follow-up:
 the read was cancelled after 1247 byte(s); parsed 3 event(s) from the partial buffer
-  partial body excerpt: event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\nevent: tick\nda…
+  partial body excerpt: event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\nevent: tick\nda...
 ```
 
 Per-event `Data` is truncated at 80 characters in the failure list; body
 excerpts (parse failures and cancellation excerpts) are truncated at 256
-characters. Truncations use the U+2026 ellipsis (`…`).
+characters. Truncations use the U+2026 ellipsis (`...`).
 
 ## Cookbook
 
@@ -441,69 +441,11 @@ Read this before opening a feature request.
 
 ## Design notes
 
-### Why the chain pattern (on the string receiver)
-
-SSE assertions naturally compose. Flat methods would explode the overload set
-(`HasSseEvent(eventName)`, `HasSseEvent(eventName, minCount)`,
-`HasSseEvent(eventName, dataPredicate)`,
-`HasSseEvent(eventName, dataPredicate, minCount)`, ...). The chain stays linear
-regardless of how many narrowers are added. Precedent in the family:
-`LogAssertions.TUnit`'s `HasLogged().WithException<T>().AtLeast(N)`.
-
-### Why flat methods on async receivers
-
-`Stream` and `HttpResponseMessage` receivers require the body read to happen
-inside the assertion call. Composing the async read with a synchronous chain
-forces every chain method to be async (`Task<SseAssertion>`) which breaks
-fluent composition at the call site (`(await response.HasSseEvent(...)).AtLeast(2)`
-is awkward to read). The flat-form encodes the most common shape - event name
-plus minimum count plus optional content-type validation and cancellation - in
-one call. The chain remains available on the `string` receiver for tests that
-read the body first.
-
-### Why `Content-Type: text/event-stream` validation is on by default
-
-Default-on catches the foot-gun where a test hits the wrong endpoint and gets
-HTML, JSON, or a 500 page - without content-type validation the parser silently
-produces an empty event list and the assertion fails with a confusing
-`but observed: 0 events`. Opt out via `strictContentType: false` for test mocks
-that serve SSE without the canonical header. Comparison is case-insensitive
-per RFC 9110 §8.3.2 media-type tokens.
-
-### Why `Func<string, bool>` for data predicates (instead of `JsonTypeInfo<T>`)
-
-Zero coupling. Consumers pass any deserialization strategy (source-gen STJ,
-reflection STJ, Newtonsoft, custom format) inside the predicate body. A
-`JsonTypeInfo<T>`-typed overload would force either an STJ runtime dependency
-or an `AsJsonContext()`-style adapter (which the `JsonAssertions` package
-needed because its receiver type *is* the context itself; `SseAssertions`'s
-receiver is the wire format, so the simpler delegate works).
-
-### Why no direct `JsonAssertions.TUnit` reference
-
-Per the family's cross-package references rule (see [`CONVENTIONS.md`](CONVENTIONS.md)),
-no sibling family package may appear as a `PackageReference` in another
-sibling's production `.csproj`. JSON composition is at the consumer's call site
-via standard delegates; the assertion family stays internally decoupled.
-
-### Cancellation-bounded partial-buffer reads
-
-The `Stream` and `HttpResponseMessage` overloads use `Content.ReadAsStreamAsync`
-plus an `ArrayPool<byte>`-backed `ReadAsync` loop into a `MemoryStream` - not
-`Content.ReadAsStringAsync`. `ReadAsStringAsync` discards the partial
-accumulator when its cancellation fires; the manual loop captures whatever
-bytes arrived before the cut and parses them as best-effort SSE. The encoding
-is resolved from the response's `Content-Type` charset (UTF-8 fallback per
-WHATWG SSE default).
-
-### Eager parser materialisation
-
-`SseFrameParser.Parse(string)` materialises the full `IReadOnlyList<SseEvent>`
-plus every `SseEvent` instance plus every `Data` string eagerly. This is fine
-for test-time, bounded-buffer scenarios where event counts are small.
-A future streaming-mode will also address the all-events-in-memory allocation
-profile by yielding `SseEvent` instances on demand from the async-enumerable
-receiver path.
+- **Chain on the `string` receiver.** SSE assertions compose, so a chain (`HasSseEvent(name).WithData(...).AtLeast(n)`) stays linear where flat overloads would explode combinatorially. Same shape as `LogAssertions`' `HasLogged().WithException<T>().AtLeast(n)`.
+- **Flat methods on the async receivers.** `Stream` / `HttpResponseMessage` must read the body inside the assertion; a synchronous chain over an async read would force every chain method to return `Task`, which reads awkwardly. The flat form encodes the common case (event name + min count + optional content-type check + cancellation) in one call; the chain stays available on `string`.
+- **Content-Type `text/event-stream` validation is on by default.** It catches the foot-gun where a test hits the wrong endpoint and gets HTML / JSON / a 500: without it the parser silently yields zero events and the failure is confusing. Opt out with `strictContentType: false`. Comparison is case-insensitive (RFC 9110).
+- **`Func<string, bool>` for data predicates, not `JsonTypeInfo<T>`.** Zero coupling: pass any deserialization strategy inside the predicate. A typed overload would force an STJ dependency or an adapter. Per the family's cross-package rule the package takes no `JsonAssertions` reference; JSON composition happens at your call site.
+- **Cancellation-bounded reads.** The `Stream` / `HttpResponseMessage` overloads use an `ArrayPool<byte>`-backed read loop rather than `ReadAsStringAsync` (which discards its partial buffer on cancellation); the loop parses whatever bytes arrived as best-effort SSE. Encoding comes from the `Content-Type` charset, UTF-8 fallback.
 
 ## Stability intent (pre-1.0)
 
