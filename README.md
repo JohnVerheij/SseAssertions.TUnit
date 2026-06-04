@@ -174,9 +174,15 @@ rule described here.
   ignored.
 - **`retry:` is a directive field, not a named event.** `HasSseRetryDirectiveFirst`
   matches the WHATWG `retry:` directive field, not an `event: retry` named event.
-  A stream that emits `event: retry` followed by a `data:` field carries no `retry:`
-  field line, so the assertion fails ("no retry directive was found"). The check is
-  spec-strict and reads the wire-level field, not the dispatched event name.
+  A stream that emits `event: retry` followed by a `data:` field but no `retry:`
+  field line fails ("no retry directive was found"). The check is spec-strict and
+  reads the wire-level field, not the dispatched event name.
+- **An empty `data:` line does not count as data.** The standard ASP.NET Core SSE
+  writer serializes a reconnection control frame as `event: retry`, then an empty
+  `data:` line, then `retry: <ms>` (the runtime fixes field order to event, data,
+  id, retry). `HasSseRetryDirectiveFirst` ignores empty `data:` lines, so this
+  control frame passes: the `retry:` directive is present and is the first event.
+  Only a non-empty `data:` value before the first `retry:` fails.
 - **Line terminators**: `\n`, `\r\n`, and `\r` are all valid.
 - **UTF-8 BOM** at byte offset 0 is consumed and ignored. A BOM-like character
   appearing mid-stream is treated as a regular character of its containing

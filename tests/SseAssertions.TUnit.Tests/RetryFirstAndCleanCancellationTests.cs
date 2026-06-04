@@ -25,6 +25,13 @@ internal sealed class RetryFirstAndCleanCancellationTests
     private const string RetryOnly = "retry: 5000\n\n";
     private const string NoRetry = "event: tick\ndata: 1\n\n";
 
+    // The standard ASP.NET Core SSE serializer writes a reconnection control frame as
+    // `event: retry` + an empty `data:` line + `retry: <ms>` (the BCL fixes field order to
+    // event/data/id/retry). The empty `data:` line precedes `retry:` on the wire but carries no
+    // payload, so the directive is still the first event.
+    private const string AspNetRetryControlFrame = "event: retry\ndata:\nretry: 5000\n\nevent: tick\ndata: 1\n\n";
+    private const string RetryControlFrameOnly = "event: retry\ndata:\nretry: 5000\n\n";
+
     // ---- HasSseRetryDirectiveFirst ----
 
     [Test]
@@ -50,16 +57,44 @@ internal sealed class RetryFirstAndCleanCancellationTests
     }
 
     [Test]
-    public async Task String_BareDataFieldBeforeRetry_Fails(CancellationToken ct)
+    public async Task String_EmptyDataBeforeRetry_Passes(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        // "data" with no colon is a data field (empty value) per SSE; it still counts as data-first.
-        var ex = await Assert.That(async () =>
-        {
-            await Assert.That("data\n\nretry: 5000\n\n").HasSseRetryDirectiveFirst();
-        }).Throws<AssertionException>();
+        // A bare "data" line (no colon) is a data field with an empty value per SSE. An empty data
+        // line carries no payload, so it does not count as data preceding the retry directive.
+        await Assert.That("data\n\nretry: 5000\n\n").HasSseRetryDirectiveFirst();
+    }
 
-        await Assert.That(ex!.Message).Contains("a data field appeared before the first retry directive");
+    [Test]
+    public async Task String_AspNetRetryControlFrame_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // The standard ASP.NET Core control frame: `event: retry` + empty `data:` + `retry: 5000`.
+        // The empty data line must not be read as data preceding the directive.
+        await Assert.That(AspNetRetryControlFrame).HasSseRetryDirectiveFirst();
+    }
+
+    [Test]
+    public async Task String_RetryControlFrameOnly_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(RetryControlFrameOnly).HasSseRetryDirectiveFirst();
+    }
+
+    [Test]
+    public async Task Stream_AspNetRetryControlFrame_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var stream = ToStream(AspNetRetryControlFrame);
+        await Assert.That(stream).HasSseRetryDirectiveFirst(cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_AspNetRetryControlFrame_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse(AspNetRetryControlFrame, "text/event-stream");
+        await Assert.That(response).HasSseRetryDirectiveFirst(cancellationToken: ct);
     }
 
     [Test]
