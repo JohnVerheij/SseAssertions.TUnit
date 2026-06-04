@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-05: HasSseRetryDirectiveFirst accepts an empty data line before the directive
+
+Patch release. Fixes `HasSseRetryDirectiveFirst` so it no longer rejects the reconnection control frame emitted by the standard ASP.NET Core SSE writer. No public API change; the `0.3.0` ApiCompat baseline is preserved.
+
+### Fixed
+
+- **`HasSseRetryDirectiveFirst` now treats an empty `data:` line as carrying no payload.** `Results.ServerSentEvents` over an `SseItem` with a `ReconnectionInterval` serializes the reconnection control frame as `event: retry`, then an empty `data:` line, then `retry: <ms>` (the runtime fixes the field order to event, data, id, retry). The previous wire-level check read that empty `data:` line as "a data field appeared before the retry directive" and failed, so the assertion rejected the standard server's own output even though the `retry:` directive is present and is the first event. The check now ignores empty `data:` lines (a bare `data` line, or a `data:` line with no value after the optional leading space); only a non-empty `data:` value before the first `retry:` fails. A standalone `retry:`-only frame and a genuine data-bearing event before the directive both behave as before.
+
+### Changed
+
+- README and packed-README correction: `HasSseRetryDirectiveFirst` is documented as matching the first non-empty `data:` field, and the standard ASP.NET Core control frame shape (`event: retry` + empty `data:` + `retry: <ms>`) is called out as a passing case. The note that a named `event: retry` with no `retry:` field fails is unchanged.
+
 ## [0.4.0] - 2026-06-04: HttpResponseMessage receiver for EndsCleanlyOnCancellation
 
 Minor release. Adds the `HttpResponseMessage` receiver to `EndsCleanlyOnCancellation`, so a cancellation-teardown assertion can run directly against an HTTP response without first extracting the body stream. The `0.3.0` retry-first surface already covered `string`, `Stream`, and `HttpResponseMessage`; this release closes the matching gap for the clean-cancellation assertion. Purely additive; the `0.3.0` ApiCompat baseline is preserved.

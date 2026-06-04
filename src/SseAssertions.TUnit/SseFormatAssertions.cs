@@ -150,7 +150,10 @@ public static class SseFormatAssertions
     /// <summary>Asserts the SSE stream parsed from <paramref name="body"/> sends a <c>retry:</c>
     /// directive before any data-bearing event. A <c>retry:</c> directive is a reconnection-time
     /// hint, not a named event, so this is distinct from <c>HasFirstSseEvent</c>: the contract is
-    /// "the server set the reconnection time before streaming any payload".</summary>
+    /// "the server set the reconnection time before streaming any payload". An empty <c>data:</c>
+    /// line carries no payload and does not count as data: the standard ASP.NET Core SSE serializer
+    /// emits a reconnection control frame as <c>event: retry</c> + an empty <c>data:</c> line +
+    /// <c>retry:</c>, and that empty line must not be read as data preceding the directive.</summary>
     /// <param name="body">The SSE wire-format body to inspect.</param>
     /// <returns>A passing assertion when a <c>retry:</c> directive precedes the first data event;
     /// otherwise a failing assertion (no retry directive at all, or a data event came first).</returns>
@@ -164,11 +167,15 @@ public static class SseFormatAssertions
 
     internal static AssertionResult EvaluateRetryDirectiveFirst(string body)
     {
-        // Wire-level check: the first `retry:` field line must precede the first `data:` field
-        // line. A retry-only frame carries no data and is not dispatched as a parsed event (the
-        // WHATWG parser drops dispatch-less frames), so the order is read from the raw field lines
-        // rather than the event list. Line endings normalize to LF first so \r\n / \r / \n split
-        // identically.
+        // Wire-level check: the first `retry:` field line must precede the first data-bearing line.
+        // A `data:` line with an empty value carries no payload and does not count as "data first":
+        // the standard ASP.NET Core SSE serializer writes a reconnection control frame as
+        // `event: retry` + an empty `data:` line + `retry: <ms>` (the BCL fixes field order to
+        // event/data/id/retry), so the empty `data:` precedes `retry:` on the wire even though the
+        // directive is the first dispatched event. Only a non-empty `data:` value before the first
+        // `retry:` fails. The order is read from the raw field lines rather than the parsed event
+        // list because a retry-only frame carries no data and is dropped by the WHATWG parser. Line
+        // endings normalize to LF first so \r\n / \r / \n split identically.
         var normalized = body.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
         var lines = normalized.Split('\n');
         var firstRetry = -1;
@@ -180,7 +187,7 @@ public static class SseFormatAssertions
                 firstRetry = i;
             }
 
-            if (firstData < 0 && IsField(lines[i], "data"))
+            if (firstData < 0 && IsNonEmptyDataField(lines[i]))
             {
                 firstData = i;
             }
@@ -205,6 +212,40 @@ public static class SseFormatAssertions
         }
 
         return AssertionResult.Passed;
+    }
+
+    /// <summary>Reports whether <paramref name="line"/> is a <c>data:</c> field line carrying a
+    /// non-empty value. A bare <c>data</c> line (no colon) or a <c>data:</c> line whose value is
+    /// empty after stripping the single optional leading space carries no payload and returns
+    /// <see langword="false"/>: the standard SSE serializer emits such an empty <c>data:</c> line
+    /// alongside a <c>retry:</c> control frame, and it must not count as data preceding the retry
+    /// directive.</summary>
+    private static bool IsNonEmptyDataField(ReadOnlySpan<char> line)
+    {
+        if (line.Length is 0 || line[0] is ':')
+        {
+            return false;
+        }
+
+        var colon = line.IndexOf(':');
+        if (colon < 0)
+        {
+            // Bare "data" is a data field with an empty value per spec.
+            return false;
+        }
+
+        if (line[..colon] is not "data")
+        {
+            return false;
+        }
+
+        var value = line[(colon + 1)..];
+        if (value.Length > 0 && value[0] is ' ')
+        {
+            value = value[1..];
+        }
+
+        return value.Length > 0;
     }
 
     /// <summary>Reports whether <paramref name="line"/> is an SSE field line for
