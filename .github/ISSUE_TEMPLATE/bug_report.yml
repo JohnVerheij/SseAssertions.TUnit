@@ -71,19 +71,11 @@ body:
         [Test]
         public async Task Reproduces_The_Issue()
         {
-            var actual = "some text";
-            await Assert.That(actual).MatchesSnapshot();
+            using var response = await client.GetAsync("/events", ct);
+            await Assert.That(response).HasSseEvent("tick");
         }
     validations:
       required: true
-
-  - type: textarea
-    id: snapshot-files
-    attributes:
-      label: Snapshot files involved
-      description: Paths and (small) contents of the `.expected.txt` / `.actual.txt` files relevant to the bug, if applicable.
-    validations:
-      required: false
 
   - type: textarea
     id: additional

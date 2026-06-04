@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a new option, scrubber, or capability
+description: Suggest a new assertion or capability
 title: "[Feature]: "
 labels: [enhancement]
 
@@ -21,10 +21,10 @@ body:
     id: proposed-api
     attributes:
       label: Proposed API
-      description: What does the new option, scrubber, or method look like in user code?
+      description: What does the new assertion or method look like in user code?
       render: csharp
       placeholder: |
-        await Assert.That(actual).MatchesSnapshotScrubbed(YourNewScrubber);
+        await Assert.That(response).HasSseEvent("update").WithData(d => d.Contains("shipped"));
     validations:
       required: true
 
