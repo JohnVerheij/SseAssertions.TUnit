@@ -449,7 +449,8 @@ public static class SseStreamAndHttpAssertions
         this Stream stream, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        return await DrainExpectingCleanCancellationAsync(stream, cancellationToken).ConfigureAwait(false);
+        return await DrainExpectingCleanCancellationAsync(
+            _ => new ValueTask<Stream>(stream), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body tears down cleanly when
@@ -475,26 +476,32 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(response);
 
+        var content = response.Content;
+
         if (strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = content?.Headers?.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
             }
         }
 
-        if (response.Content is null)
+        if (content is null)
         {
             return AssertionResult.Passed;
         }
 
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        return await DrainExpectingCleanCancellationAsync(stream, cancellationToken).ConfigureAwait(false);
+        // Acquire the body stream inside the drain's cancellation classification: a token that
+        // fires during ReadAsStreamAsync must be the same clean-teardown signal as one that fires
+        // during the read loop, not an exception that escapes the assertion.
+        return await DrainExpectingCleanCancellationAsync(
+            ct => new ValueTask<Stream>(content.ReadAsStreamAsync(ct)),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<AssertionResult> DrainExpectingCleanCancellationAsync(
-        Stream stream, CancellationToken cancellationToken)
+        Func<CancellationToken, ValueTask<Stream>> streamFactory, CancellationToken cancellationToken)
     {
         const int BufferSize = 4096;
         var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
@@ -502,6 +509,7 @@ public static class SseStreamAndHttpAssertions
         {
             try
             {
+                var stream = await streamFactory(cancellationToken).ConfigureAwait(false);
                 int read;
                 do
                 {
@@ -511,7 +519,8 @@ public static class SseStreamAndHttpAssertions
             }
             catch (OperationCanceledException)
             {
-                // Cooperative cancellation is the clean teardown signal.
+                // Cooperative cancellation at any point in the read pipeline (acquiring the body
+                // stream or reading it) is the clean teardown signal.
             }
 
             return AssertionResult.Passed;

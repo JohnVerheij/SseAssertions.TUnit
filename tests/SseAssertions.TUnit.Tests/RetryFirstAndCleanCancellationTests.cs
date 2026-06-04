@@ -359,6 +359,18 @@ internal sealed class RetryFirstAndCleanCancellationTests
             .Throws<ArgumentNullException>();
     }
 
+    [Test]
+    public async Task Http_EndsCleanly_CancellationDuringStreamAcquisition_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // Cancellation that surfaces while acquiring the body stream (ReadAsStreamAsync), before
+        // the read loop is entered, is still the clean cooperative-teardown signal the assertion
+        // checks for, not an exception that escapes it.
+        using var response = BuildResponseFromContent(
+            new ThrowingOnAcquireContent(new OperationCanceledException()), "text/event-stream");
+        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+    }
+
     private static MemoryStream ToStream(string body) => new(Encoding.UTF8.GetBytes(body));
 
     private static HttpResponseMessage BuildResponseFromStream(Stream body, string contentType)
@@ -371,6 +383,12 @@ internal sealed class RetryFirstAndCleanCancellationTests
     private static HttpResponseMessage BuildResponse(string body, string contentType)
     {
         var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(body)));
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    private static HttpResponseMessage BuildResponseFromContent(HttpContent content, string contentType)
+    {
         content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
@@ -438,5 +456,26 @@ internal sealed class RetryFirstAndCleanCancellationTests
         public override void SetLength(long value) => throw new NotSupportedException();
 
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    /// <summary>An <see cref="HttpContent"/> whose body-stream acquisition always fails with the
+    /// configured exception, for exercising the cancellation-teardown classification when the
+    /// failure happens in <c>ReadAsStreamAsync</c> rather than the read loop.</summary>
+    private sealed class ThrowingOnAcquireContent(Exception toThrow) : HttpContent
+    {
+        protected override Task<Stream> CreateContentReadStreamAsync(CancellationToken cancellationToken)
+            => Task.FromException<Stream>(toThrow);
+
+        protected override Task<Stream> CreateContentReadStreamAsync()
+            => Task.FromException<Stream>(toThrow);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            => Task.CompletedTask;
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
     }
 }
