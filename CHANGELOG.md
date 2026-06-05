@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-06: value-pinning retry-first assertion
+
+Minor release. Adds a value-pinning `HasSseRetryDirectiveFirst(int millis)` overload across all three receivers, so the leading `retry:` directive's position and value can be asserted in a single read of a forward-only response body. Purely additive; the `0.3.0` ApiCompat baseline is preserved.
+
+### Added
+
+- **`HasSseRetryDirectiveFirst(int millis)`** on the `string`, `Stream`, and `HttpResponseMessage` receivers asserts that a `retry:` directive precedes the first data-bearing event *and* that the leading directive's value equals `millis`. Position and value were previously assertable only separately (`HasSseRetryDirectiveFirst()` for position, `HasSseRetryDirective(millis)` for value), which a forward-only `HttpResponseMessage` body cannot satisfy across two calls; this overload pins both in a single read. On a value mismatch the failure names the expected and the observed leading `retry:` value.
+
+### Changed
+
+- The release workflow now publishes the matching `CHANGELOG.md` section as the GitHub release body (`body_path`), so release notes carry the full hand-written detail instead of GitHub's auto-generated commit summary.
+
 ## [0.4.1] - 2026-06-05: HasSseRetryDirectiveFirst accepts an empty data line before the directive
 
 Patch release. Fixes `HasSseRetryDirectiveFirst` so it no longer rejects the reconnection control frame emitted by the standard ASP.NET Core SSE writer. No public API change; the `0.3.0` ApiCompat baseline is preserved.

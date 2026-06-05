@@ -183,6 +183,11 @@ rule described here.
   id, retry). `HasSseRetryDirectiveFirst` ignores empty `data:` lines, so this
   control frame passes: the `retry:` directive is present and is the first event.
   Only a non-empty `data:` value before the first `retry:` fails.
+- **Pin position and value in one read.** `HasSseRetryDirectiveFirst(millis)` asserts
+  the leading `retry:` directive's position *and* value together, for a forward-only
+  `HttpResponseMessage` body that cannot be read twice (the position-only
+  `HasSseRetryDirectiveFirst()` and the value-only `HasSseRetryDirective(millis)`
+  each consume the body, so they cannot both inspect the same response).
 - **Line terminators**: `\n`, `\r\n`, and `\r` are all valid.
 - **UTF-8 BOM** at byte offset 0 is consumed and ignored. A BOM-like character
   appearing mid-stream is treated as a regular character of its containing
@@ -209,6 +214,9 @@ rule described here.
 | `string` | `.HasSseRetryDirectiveFirst()` | flat - `AssertionResult` | - |
 | `Stream` | `.HasSseRetryDirectiveFirst(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseRetryDirectiveFirst(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `string` | `.HasSseRetryDirectiveFirst(millis)` | flat - `AssertionResult` | - |
+| `Stream` | `.HasSseRetryDirectiveFirst(millis, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasSseRetryDirectiveFirst(millis, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `Stream` | `.EndsCleanlyOnCancellation(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.EndsCleanlyOnCancellation(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 

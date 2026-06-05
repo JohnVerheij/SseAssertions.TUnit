@@ -156,6 +156,55 @@ internal sealed class RetryFirstAndCleanCancellationTests
     }
 
     [Test]
+    public async Task Http_RetryFirstWithValue_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse(RetryThenData, "text/event-stream");
+        await Assert.That(response).HasSseRetryDirectiveFirst(5000, cancellationToken: ct);
+    }
+
+    [Test]
+    public async Task Http_RetryFirstWithWrongValue_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse(RetryThenData, "text/event-stream");
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).HasSseRetryDirectiveFirst(9999, cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("retry: 9999");
+        await Assert.That(ex.Message).Contains("retry: 5000");
+    }
+
+    [Test]
+    public async Task Stream_RetryFirstWithValue_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var stream = ToStream(RetryThenData);
+        await Assert.That(stream).HasSseRetryDirectiveFirst(5000, ct);
+    }
+
+    [Test]
+    public async Task String_RetryFirstWithValue_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(AspNetRetryControlFrame).HasSseRetryDirectiveFirst(5000);
+    }
+
+    [Test]
+    public async Task String_RetryFirstWithValue_Mismatch_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(RetryThenData).HasSseRetryDirectiveFirst(9999);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("retry: 9999");
+    }
+
+    [Test]
     public async Task Http_NonSseStrictDefault_Fails(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

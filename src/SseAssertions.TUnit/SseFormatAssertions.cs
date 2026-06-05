@@ -165,7 +165,25 @@ public static class SseFormatAssertions
         return EvaluateRetryDirectiveFirst(body);
     }
 
-    internal static AssertionResult EvaluateRetryDirectiveFirst(string body)
+    /// <summary>Asserts the SSE stream parsed from <paramref name="body"/> sends a <c>retry:</c>
+    /// directive before any data-bearing event <em>and</em> that the leading directive's value equals
+    /// <paramref name="millis"/>. The value-pinning companion to <see cref="HasSseRetryDirectiveFirst(string)"/>:
+    /// asserts both position and value in a single pass, where an empty <c>data:</c> control-frame line
+    /// does not count as data (see <see cref="HasSseRetryDirectiveFirst(string)"/>).</summary>
+    /// <param name="body">The SSE wire-format body to inspect.</param>
+    /// <param name="millis">The required <c>retry:</c> value, in milliseconds, of the leading directive.</param>
+    /// <returns>A passing assertion when a <c>retry: millis</c> directive precedes the first data event;
+    /// otherwise a failing assertion (no retry directive, a data event came first, or the leading
+    /// directive carried a different value).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static AssertionResult HasSseRetryDirectiveFirst(this string body, int millis)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        return EvaluateRetryDirectiveFirst(body, millis);
+    }
+
+    internal static AssertionResult EvaluateRetryDirectiveFirst(string body, int? expectedMillis = null)
     {
         // Wire-level check: the first `retry:` field line must precede the first data-bearing line.
         // A `data:` line with an empty value carries no payload and does not count as "data first":
@@ -211,7 +229,59 @@ public static class SseFormatAssertions
                 "the stream to send a retry directive before any data\n  but a data field appeared before the first retry directive");
         }
 
+        if (expectedMillis is int expected
+            && CheckLeadingRetryValue(lines[firstRetry], expected) is { } mismatch)
+        {
+            return mismatch;
+        }
+
         return AssertionResult.Passed;
+    }
+
+    /// <summary>Verifies the leading <c>retry:</c> directive's value equals <paramref name="expected"/>,
+    /// returning a failing <see cref="AssertionResult"/> when it does not (or is unparseable), or
+    /// <see langword="null"/> when it matches.</summary>
+    /// <param name="retryLine">The leading <c>retry:</c> field line.</param>
+    /// <param name="expected">The required <c>retry:</c> value in milliseconds.</param>
+    /// <returns>A failing assertion on mismatch; otherwise <see langword="null"/>.</returns>
+    private static AssertionResult? CheckLeadingRetryValue(string retryLine, int expected)
+    {
+        var actual = ParseRetryValue(retryLine);
+        if (actual == expected)
+        {
+            return null;
+        }
+
+        return AssertionResult.Failed(string.Concat(
+            "the stream to send a \"retry: ",
+            expected.ToString(CultureInfo.InvariantCulture),
+            "\" directive before any data\n  but the leading retry directive was ",
+            actual is null
+                ? "unparseable"
+                : string.Concat("\"retry: ", actual.Value.ToString(CultureInfo.InvariantCulture), "\"")));
+    }
+
+    /// <summary>Parses the integer millisecond value from a <c>retry:</c> field line. Returns
+    /// <see langword="null"/> when the value is absent or not all-ASCII-digits (per the SSE spec a
+    /// non-numeric <c>retry:</c> value is ignored). <paramref name="line"/> is assumed to be a
+    /// <c>retry</c> field line as confirmed by <see cref="IsField"/>.</summary>
+    /// <param name="line">The <c>retry:</c> field line.</param>
+    /// <returns>The parsed millisecond value, or <see langword="null"/> when not a valid integer.</returns>
+    private static int? ParseRetryValue(ReadOnlySpan<char> line)
+    {
+        var colon = line.IndexOf(':');
+        if (colon < 0)
+        {
+            return null;
+        }
+
+        var value = line[(colon + 1)..];
+        if (value.Length > 0 && value[0] is ' ')
+        {
+            value = value[1..];
+        }
+
+        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var ms) ? ms : null;
     }
 
     /// <summary>Reports whether <paramref name="line"/> is a <c>data:</c> field line carrying a

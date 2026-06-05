@@ -434,6 +434,68 @@ public static class SseStreamAndHttpAssertions
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
     }
 
+    /// <summary>Asserts the supplied <see cref="Stream"/> sends a <c>retry:</c> directive before any
+    /// data-bearing event <em>and</em> that the leading directive's value equals
+    /// <paramref name="millis"/>: position and value pinned in a single read.</summary>
+    /// <param name="stream">The SSE stream.</param>
+    /// <param name="millis">The required <c>retry:</c> value, in milliseconds, of the leading directive.</param>
+    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <returns>An assertion that passes when a <c>retry: millis</c> directive precedes the first data event.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
+        this Stream stream, int millis, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
+    }
+
+    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body sends a <c>retry:</c>
+    /// directive before any data-bearing event <em>and</em> that the leading directive's value equals
+    /// <paramref name="millis"/>: position and value pinned in a single read of the forward-only
+    /// response body, which a separate position assertion and value assertion cannot both inspect.</summary>
+    /// <param name="response">The HTTP response carrying the SSE body.</param>
+    /// <param name="millis">The required <c>retry:</c> value, in milliseconds, of the leading directive.</param>
+    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
+    /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
+    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <returns>An assertion that passes when a <c>retry: millis</c> directive precedes the first data
+    /// event, or fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
+    /// is on and the header is wrong.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion]
+    public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
+        this HttpResponseMessage response,
+        int millis,
+        bool strictContentType = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        if (strictContentType)
+        {
+            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
+            }
+        }
+
+        if (response.Content is null)
+        {
+            return SseFormatAssertions.EvaluateRetryDirectiveFirst(string.Empty, millis);
+        }
+
+        var encoding = ResolveEncoding(response);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+            stream, encoding, cancellationToken).ConfigureAwait(false);
+        return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
+    }
+
     /// <summary>Asserts the supplied <see cref="Stream"/> tears down cleanly when its read is
     /// cancelled: the read either completes normally or surfaces cooperative cancellation
     /// (<see cref="OperationCanceledException"/>), but not a transport exception
