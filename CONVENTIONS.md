@@ -158,7 +158,7 @@ No sibling-package-name prefix may appear in another sibling's public API.
 - `Tracing...` typenames and member names belong to `TracingAssertions` only
 
 Applies to typenames AND method names AND extension method names in the
-package's PublicAPI surface. The family's verb-naming convention is what's
+package's public API surface. The family's verb-naming convention is what's
 being protected - extension methods are still public API and follow the
 same rule.
 
@@ -175,7 +175,7 @@ Composition between packages happens via standard BCL types and delegates
 (`Func<T, string>`, `IDisposable`, etc.), never via sibling-branded types
 appearing in another package's surface.
 
-Pack-time CI validation enforces this: the package's PublicAPI snapshot
+Pack-time CI validation enforces this: the package's public API snapshot
 must not contain `Snapshot*`, `Log*`, `Math*`, `Time*`, `Json*`, `Sse*`, `Grpc*`,
 or `Tracing*` as a leading prefix on typenames, method names, or extension
 method names exposed publicly (with the strict whitelist above).
