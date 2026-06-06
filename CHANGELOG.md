@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-06: value-pinning retry-first assertion
+
+Minor release. Adds a value-pinning `HasSseRetryDirectiveFirst(int millis)` overload across all three receivers, so the leading `retry:` directive's position and value can be asserted in a single read of a forward-only response body. Purely additive; the `0.3.0` ApiCompat baseline is preserved.
+
+### Added
+
+- **`HasSseRetryDirectiveFirst(int millis)`** on the `string`, `Stream`, and `HttpResponseMessage` receivers asserts that a `retry:` directive precedes the first data-bearing event *and* that the leading directive's value equals `millis`. Position and value were previously assertable only separately (`HasSseRetryDirectiveFirst()` for position, `HasSseRetryDirective(millis)` for value), which a forward-only `HttpResponseMessage` body cannot satisfy across two calls; this overload pins both in a single read. On a value mismatch the failure names the expected and the observed leading `retry:` value.
+
+### Changed
+
+- The release workflow now publishes the matching `CHANGELOG.md` section as the GitHub release body (`body_path`), so release notes carry the full hand-written detail instead of GitHub's auto-generated commit summary.
+
 ## [0.4.1] - 2026-06-05: HasSseRetryDirectiveFirst accepts an empty data line before the directive
 
 Patch release. Fixes `HasSseRetryDirectiveFirst` so it no longer rejects the reconnection control frame emitted by the standard ASP.NET Core SSE writer. No public API change; the `0.3.0` ApiCompat baseline is preserved.
@@ -34,12 +46,12 @@ Minor release. Adds the `HttpResponseMessage` receiver to `EndsCleanlyOnCancella
 
 ## [0.3.0] - 2026-06-02: retry-first and clean-cancellation stream assertions
 
-Feature release. Adds two SSE-correctness refinements on the live-stream surface: `HasSseRetryDirectiveFirst()` asserts the server sent a `retry:` directive before any data, and `EndsCleanlyOnCancellation()` asserts a cancelled read tears down cooperatively rather than surfacing a transport exception. Also folds in the accumulated CI hardening and docs hygiene from the unreleased line.
+Feature release. Adds two SSE-correctness refinements on the live-stream surface: `HasSseRetryDirectiveFirst()` asserts the server sent a `retry:` directive before any data, and `EndsCleanlyOnCancellation()` asserts a canceled read tears down cooperatively rather than surfacing a transport exception. Also folds in the accumulated CI hardening and docs hygiene from the unreleased line.
 
 ### Added
 
 - **`Assert.That(response).HasSseRetryDirectiveFirst()`** (with `Stream` and `string` receivers) asserts that the SSE stream sends a `retry:` directive before any `data:` field. A `retry:` directive is a reconnection-time hint, not a named event, so the order is checked at the wire-field level: a retry-only frame carries no data and is not dispatched as a parsed event, so it would otherwise be invisible to an event-list check. Source-generated via `[GenerateAssertion]`.
-- **`Assert.That(stream).EndsCleanlyOnCancellation(cancellationToken)`** asserts that cancelling the read mid-stream tears down via cooperative cancellation (the read completes, or raises `OperationCanceledException`) rather than surfacing a transport exception (`IOException`, `HttpRequestException`). The assertion drains and discards content, checking only teardown behaviour.
+- **`Assert.That(stream).EndsCleanlyOnCancellation(cancellationToken)`** asserts that canceling the read mid-stream tears down via cooperative cancellation (the read completes, or raises `OperationCanceledException`) rather than surfacing a transport exception (`IOException`, `HttpRequestException`). The assertion drains and discards content, checking only teardown behavior.
 - **`SseFailureMessage.UncleanCancellation(Exception)`** renders the failure message for `EndsCleanlyOnCancellation`, naming the transport exception that surfaced. Public, matching the existing failure-message factory surface for consumer-authored typed SSE assertions.
 
 ### Changed
@@ -59,7 +71,7 @@ Minor release. Adds four new assertions covering common SSE smoke-test patterns:
 ### Added
 
 - `HasSseContentType(bool strict = false)` on `HttpResponseMessage`. Synchronous, header-only discriminator (does not read the body). Non-strict mode passes when `Content-Type`'s media type is `text/event-stream` (case-insensitive) with any trailing parameters such as `charset=utf-8`. Strict mode requires the bare media type with no parameters. Use as a lightweight smoke-test alternative to the `HasSseEvent(strictContentType)` form that reads and parses the body.
-- `HasFirstSseEvent(string eventName)` on `string`, `Stream`, and `HttpResponseMessage`. Asserts the first parsed SSE frame's `event:` name. Unlabelled frames match `HasFirstSseEvent("message")` per the WHATWG default-event-name rule. `Stream` and `HttpResponseMessage` overloads are async with `CancellationToken`-bounded reads; the `HttpResponseMessage` overload validates `Content-Type` by default (opt-out via `strictContentType: false`). Failure diagnostics name the observed first event or report `"stream contained no events"`.
+- `HasFirstSseEvent(string eventName)` on `string`, `Stream`, and `HttpResponseMessage`. Asserts the first parsed SSE frame's `event:` name. Unlabeled frames match `HasFirstSseEvent("message")` per the WHATWG default-event-name rule. `Stream` and `HttpResponseMessage` overloads are async with `CancellationToken`-bounded reads; the `HttpResponseMessage` overload validates `Content-Type` by default (opt-out via `strictContentType: false`). Failure diagnostics name the observed first event or report `"stream contained no events"`.
 - `HasSseEventsInOrder(string[] eventNames)` on `string` (chain) with `.WithStrictOrdering()` modifier, plus `HasSseEventsInOrder(IReadOnlyList<string>, bool strictOrdering, ...)` flat form on `Stream` and `HttpResponseMessage`. Default (non-strict) mode requires each named event to appear in the given order with other events permitted between them; strict mode requires the named events to appear contiguously with no other events between them. An empty `eventNames` array trivially passes. Failure diagnostics name the violation (`"X (index N) appeared before Y (index M)"`, `"Z was not in the stream"`, or `"W appeared at index N instead of V"` for strict contiguous mismatches).
 - `HasSseRetryDirective(int? millis = null)` on `string`, `Stream`, and `HttpResponseMessage`. With `millis: null` (default), passes when any frame carries a `retry:` directive (any value); with `millis: <n>`, passes when at least one frame carries `retry: <n>` (any-match semantics across multiple `retry:` directives in the same stream). `HttpResponseMessage` overload validates `Content-Type` by default (opt-out via `strictContentType: false`).
 - `SseEventsInOrderAssertion` public sealed class consumed by TUnit's source generator to emit the `HasSseEventsInOrder` chain extension on `IAssertionSource<string>`. Exposes `Evaluate(events, expectedNames, strict)` as an internal helper so the flat `Stream` / `HttpResponseMessage` overloads share the same ordering logic.
@@ -67,7 +79,7 @@ Minor release. Adds four new assertions covering common SSE smoke-test patterns:
 ### Changed
 
 - README entry-points table: corrected `IsServerSentEventsStream()`'s documented return type from `Task<AssertionResult>` to `AssertionResult` (the API is synchronous) and the cancellation parameter name from `ct` to `cancellationToken` for `HasSseEvent` on `Stream` and `HttpResponseMessage` (the actual API parameter; named-argument callers using `ct:` would not compile). The same fixes applied to the package README's entry-points table.
-- Expanded the README "Default event name" bullet in the Wire-format syntax section with a "Practical consequence for test fixtures" note: unlabelled `data: ...\n\n` frames match `HasSseEvent("message")`, `HasFirstSseEvent("message")`, and `HasSseEventsInOrder("message")` per WHATWG; fixtures that emit unlabelled frames must assert against `"message"`, not `null`.
+- Expanded the README "Default event name" bullet in the Wire-format syntax section with a "Practical consequence for test fixtures" note: unlabeled `data: ...\n\n` frames match `HasSseEvent("message")`, `HasFirstSseEvent("message")`, and `HasSseEventsInOrder("message")` per WHATWG; fixtures that emit unlabeled frames must assert against `"message"`, not `null`.
 - Bumped `PackageValidationBaselineVersion` from `0.0.1` to `0.1.0` on both packages; ApiCompat strict-mode now validates v0.2.0 against the v0.1.0 baseline at pack time. The v0.2.0 changes are purely additive; no `CompatibilitySuppressions.xml` updates required.
 - Replaced forward-looking `v0.2.0` mentions in the README (`async-receiver chain is a v0.2.0 candidate`, `streaming async-enumerable mode is a v0.2.0 candidate`, `WithRetryMillis(predicate)` deferral wording) with version-agnostic phrasing; renamed `## Roadmap to v0.2.0` to `## Roadmap` and `## Out of scope for v0.1.0` to `## Out of scope` so the section headings stop drifting with each release.
 - Added a Downloads badge and collapsed the two NuGet version badges to a single adapter-only badge so the banner set matches `TimeAssertions.TUnit`. Replaced the single `## Family` section with `## Family compatibility` (release / ApiCompat prose + per-package CHANGELOG cross-links) and `## Pair with` (sibling package descriptions) to match the family-repo structure.
@@ -95,7 +107,7 @@ Minor release. Lifts the package from skeleton to functional: the WHATWG / W3C S
 - Updated `CONVENTIONS.md` to v0.7.
 - Added a per-package strict-scope policy section to `CONVENTIONS.md` with explicit scope statements for all six family packages.
 - Added a core+adapter packaging rule section to `CONVENTIONS.md`: five of six family packages ship core+adapter; `JsonAssertions.TUnit` is the sole single-package member.
-- Synchronised `CONVENTIONS.md` across all six family repos (the file is copied identically).
+- Synchronized `CONVENTIONS.md` across all six family repos (the file is copied identically).
 
 ## [0.0.1] - 2026-05-17: Initial preview, skeleton release establishing repository, package identifiers, and quality bar
 
@@ -138,7 +150,8 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.1...HEAD
+[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.2.0...v0.3.0

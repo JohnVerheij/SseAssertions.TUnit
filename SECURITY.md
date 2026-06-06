@@ -20,7 +20,7 @@ Reports submitted this way are visible only to repository maintainers and are en
 
 ### Alternative: open a contact-request issue
 
-If GitHub's private reporting form is unavailable in your account (e.g. organisation-level restrictions), open a regular issue with the title `Security: contact request` and **no exploit details in the body**. Just enough to indicate you have a security report to file. The maintainer will move the conversation to a private channel from there.
+If GitHub's private reporting form is unavailable in your account (e.g. organization-level restrictions), open a regular issue with the title `Security: contact request` and **no exploit details in the body**. Just enough to indicate you have a security report to file. The maintainer will move the conversation to a private channel from there.
 
 (Drafting a GitHub Security Advisory directly is restricted to repository admins and security managers, so it is not a viable fallback for external reporters.)
 
@@ -51,9 +51,9 @@ A **coordinated disclosure** (public CVE filing + advisory + patched release) is
 
 | Version line | Status | Receives security fixes |
 |---|---|---|
-| `0.4.x` | **Current** | ✅ Yes |
-| `0.3.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
-| `< 0.3.0` | Pre-stable | ❌ No |
+| `0.5.x` | **Current** | ✅ Yes |
+| `0.4.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
+| `< 0.4.0` | Pre-stable | ❌ No |
 
 Both packages (`SseAssertions` and `SseAssertions.TUnit`) version in lockstep, so each line covers both. This table is updated alongside each release that bumps the current line. Coverage of older lines for security-only fixes follows the [.NET LTS / STS rotation](CONVENTIONS.md#tfm-policy): when the package's TFM changes at a major-version boundary, security fixes for the previous line continue to ship for one minor cycle.
 

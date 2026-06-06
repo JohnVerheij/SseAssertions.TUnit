@@ -153,7 +153,7 @@ rule described here.
 
 - **Field lines** have the form `field-name: field-value`. A single leading
   space after the colon is stripped per spec; subsequent spaces are preserved.
-- **Recognised field names** are `event`, `data`, `id`, and `retry`. Unknown
+- **Recognized field names** are `event`, `data`, `id`, and `retry`. Unknown
   field names are ignored.
 - **Comment lines** start with `:` and are ignored. They are typically used as
   keepalive heartbeats.
@@ -168,7 +168,7 @@ rule described here.
   frame with no `event:` directive matches `HasSseEvent("message")`,
   `HasFirstSseEvent("message")`, and `HasSseEventsInOrder("message")`. This is
   per spec, not an assertion-library quirk: the WHATWG SSE algorithm dispatches
-  unlabelled frames as `event: message`. Test fixtures that emit unlabelled
+  unlabeled frames as `event: message`. Test fixtures that emit unlabeled
   frames must assert against `"message"`, not `null`.
 - **`retry:` values** must be non-negative ASCII digits; non-numeric values are
   ignored.
@@ -183,6 +183,11 @@ rule described here.
   id, retry). `HasSseRetryDirectiveFirst` ignores empty `data:` lines, so this
   control frame passes: the `retry:` directive is present and is the first event.
   Only a non-empty `data:` value before the first `retry:` fails.
+- **Pin position and value in one read.** `HasSseRetryDirectiveFirst(millis)` asserts
+  the leading `retry:` directive's position *and* value together, for a forward-only
+  `HttpResponseMessage` body that cannot be read twice (the position-only
+  `HasSseRetryDirectiveFirst()` and the value-only `HasSseRetryDirective(millis)`
+  each consume the body, so they cannot both inspect the same response).
 - **Line terminators**: `\n`, `\r\n`, and `\r` are all valid.
 - **UTF-8 BOM** at byte offset 0 is consumed and ignored. A BOM-like character
   appearing mid-stream is treated as a regular character of its containing
@@ -209,6 +214,9 @@ rule described here.
 | `string` | `.HasSseRetryDirectiveFirst()` | flat - `AssertionResult` | - |
 | `Stream` | `.HasSseRetryDirectiveFirst(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseRetryDirectiveFirst(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `string` | `.HasSseRetryDirectiveFirst(millis)` | flat - `AssertionResult` | - |
+| `Stream` | `.HasSseRetryDirectiveFirst(millis, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `HttpResponseMessage` | `.HasSseRetryDirectiveFirst(millis, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `Stream` | `.EndsCleanlyOnCancellation(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.EndsCleanlyOnCancellation(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
@@ -267,7 +275,7 @@ partial buffer was parsed and asserted but did not satisfy the count):
 to find at least 5 event(s) of type "tick"
   but observed: 2 event(s) of type "tick"
 ... and a follow-up:
-the read was cancelled after 1247 byte(s); parsed 3 event(s) from the partial buffer
+the read was canceled after 1247 byte(s); parsed 3 event(s) from the partial buffer
   partial body excerpt: event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\nevent: tick\nda...
 ```
 

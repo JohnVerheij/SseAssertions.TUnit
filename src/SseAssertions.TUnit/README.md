@@ -20,7 +20,7 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 | `HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | `HttpResponseMessage` | Flat; default-on `Content-Type: text/event-stream` validation |
 | `IsServerSentEventsStream()` | `string` | Lightweight discriminator. |
 | `HasSseContentType(strict)` | `HttpResponseMessage` | Header-only discriminator (no body read). `strict: false` (default) matches `text/event-stream` with any parameters; `strict: true` requires the bare media type with no parameters. |
-| `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabelled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
+| `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabeled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
 | `HasFirstSseEvent(eventName, cancellationToken)` | `Stream` | Async; reads to end then asserts first frame. |
 | `HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then asserts first frame. |
 | `HasSseEventsInOrder(eventNames)` | `string` | Chain with `.WithStrictOrdering()`. Default permits gaps between named events; strict mode requires contiguous appearance. |
@@ -30,7 +30,7 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 | `HasSseRetryDirective(millis, cancellationToken)` | `Stream` | Async; same shape. |
 | `HasSseRetryDirective(millis, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then inspects retry directives. |
 | `HasSseRetryDirectiveFirst()` | `string` / `Stream` / `HttpResponseMessage` | Asserts a `retry:` directive precedes the first non-empty `data:` field, checked at the wire-field level. An empty `data:` line carries no payload and does not count, so the standard ASP.NET Core control frame (`event: retry` + empty `data:` + `retry: <ms>`) passes. `Stream` / `HttpResponseMessage` forms take `cancellationToken`; `HttpResponseMessage` takes `strictContentType` (default-on). Matches the `retry:` directive field, not an `event: retry` named event: a stream emitting `event: retry` + `data:` with no `retry:` field fails. (v0.3.0+; empty-`data:` handling v0.4.1+) |
-| `EndsCleanlyOnCancellation(cancellationToken)` | `Stream` / `HttpResponseMessage` | Asserts a cancelled read tears down via cooperative cancellation rather than a transport exception (`IOException` / `HttpRequestException`). `HttpResponseMessage` form takes `strictContentType` (default-on) and reads the body via `ReadAsStreamAsync`. (`Stream` v0.3.0+; `HttpResponseMessage` v0.4.0+) |
+| `EndsCleanlyOnCancellation(cancellationToken)` | `Stream` / `HttpResponseMessage` | Asserts a canceled read tears down via cooperative cancellation rather than a transport exception (`IOException` / `HttpRequestException`). `HttpResponseMessage` form takes `strictContentType` (default-on) and reads the body via `ReadAsStreamAsync`. (`Stream` v0.3.0+; `HttpResponseMessage` v0.4.0+) |
 
 The chain on the `string` receiver composes `WithData(Func<string, bool>)` to narrow by data payload and `AtLeast / AtMost / Exactly` to terminate with a count assertion. The async receivers (`Stream`, `HttpResponseMessage`) use a flat-form entry point because composing an async body read with a synchronous chain is awkward in C#; the async-receiver chain is a candidate for a future release.
 

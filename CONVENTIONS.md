@@ -67,7 +67,7 @@ package's timing-related API accepts `TimeProvider` independently; no shared dep
 `LogAssertions.WithinTimeout` and `TimeAssertions.Eventually` (and any future polling
 terminator across the family) follow an explicit, fully-pinned schedule. Each package
 implements independently (the family rule forbids cross-package code reference); the
-convention pins the schedule so consumers see uniform behaviour without literal code
+convention pins the schedule so consumers see uniform behavior without literal code
 sharing.
 
 **Schedule.** Exponential schedule: 100ms, 200ms, 400ms, 800ms, then 1000ms cap. Escalates
@@ -317,8 +317,8 @@ The rules below codify what that means in practice across the family.
 **Content rules:**
 
 1. **User-facing only.** A CHANGELOG entry describes what changed for consumers: API
-   additions or changes, behavioural changes, bug fixes a consumer can hit, dependency bumps
-   with a transitive effect. Internal refactors with no behavioural change, test-only
+   additions or changes, behavioral changes, bug fixes a consumer can hit, dependency bumps
+   with a transitive effect. Internal refactors with no behavioral change, test-only
    tweaks, and dev-dependency bumps with no transitive effect belong in commit messages,
    not the CHANGELOG.
 2. **Only the six Keep a Changelog headers.** `Added`, `Changed`, `Deprecated`, `Removed`,
@@ -344,6 +344,7 @@ The rules below codify what that means in practice across the family.
    to the version section and add a new `## [Unreleased]` above it.
 10. Keep the reference-link footer (`[unreleased]: ...` / `[x.y.z]: ...`) in lockstep with
     every version bump.
+11. Version header carries a short factual summary after the date: `## [x.y.z] - YYYY-MM-DD: summary`. Factual (what changed), not promotional; it becomes the first line of the auto-extracted release notes.
 
 ## `PackageReleaseNotes` auto-extract from CHANGELOG
 
