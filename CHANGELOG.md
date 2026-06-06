@@ -107,7 +107,7 @@ Minor release. Lifts the package from skeleton to functional: the WHATWG / W3C S
 - Updated `CONVENTIONS.md` to v0.7.
 - Added a per-package strict-scope policy section to `CONVENTIONS.md` with explicit scope statements for all six family packages.
 - Added a core+adapter packaging rule section to `CONVENTIONS.md`: five of six family packages ship core+adapter; `JsonAssertions.TUnit` is the sole single-package member.
-- Synchronised `CONVENTIONS.md` across all six family repos (the file is copied identically).
+- Synchronized `CONVENTIONS.md` across all six family repos (the file is copied identically).
 
 ## [0.0.1] - 2026-05-17: Initial preview, skeleton release establishing repository, package identifiers, and quality bar
 
@@ -150,7 +150,8 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.1...HEAD
+[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.2.0...v0.3.0
