@@ -20,9 +20,8 @@
         "nuget"
       ],
       "matchPackageNames": [
-        "TUnit",
-        "TUnit.Assertions",
-        "TUnit.Core"
+        "/^TUnit(\\.|$)/",
+        "/Assertions(\\.TUnit)?$/"
       ],
       "versioning": "semver"
     },
