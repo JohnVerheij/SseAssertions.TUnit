@@ -185,6 +185,14 @@ public static class SseFormatAssertions
 
     internal static AssertionResult EvaluateRetryDirectiveFirst(string body, int? expectedMillis = null)
     {
+        // Strip a single leading UTF-8 BOM (U+FEFF) the same way SseFrameParser.Parse does, so a
+        // stream that opens with a BOM does not mask the first `retry:` field from the wire-level
+        // scan below (without this, lines[0] starts with the BOM and IsField(.., "retry") misses it).
+        if (body.Length > 0 && body[0] is '\uFEFF')
+        {
+            body = body[1..];
+        }
+
         // Wire-level check: the first `retry:` field line must precede the first data-bearing line.
         // A `data:` line with an empty value carries no payload and does not count as "data first":
         // the standard ASP.NET Core SSE serializer writes a reconnection control frame as

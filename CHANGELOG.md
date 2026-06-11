@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-06-11: correct cancellation-token attribution and BOM handling
+
+Patch release. Two correctness fixes in the cancellation and retry-first assertions. No public API change; the `0.3.0` ApiCompat baseline is preserved.
+
+### Fixed
+
+- **`EndsCleanlyOnCancellation` no longer treats a foreign-token cancellation as a clean teardown.** The read pipeline caught every `OperationCanceledException` as the cooperative-teardown signal, regardless of which token fired it. A `TaskCanceledException` raised by `HttpClient.Timeout` on a stalled server (whose token is the client's internal timeout, not the one supplied to the assertion) was therefore classified as a clean pass, so a hung server could satisfy the assertion. Cancellation now counts as clean only when the supplied `cancellationToken` is the one that was canceled; an `OperationCanceledException` from any other source fails with a message naming the foreign cancellation. **Behavior change:** a test that previously passed because a token other than the supplied one canceled the read will now fail. Token-driven cancellation via the supplied token, normal end-of-stream, and the `IOException` / `HttpRequestException` transport-failure cases are unchanged.
+- **`HasSseRetryDirectiveFirst` now strips a leading UTF-8 BOM before scanning for the `retry:` directive.** A body that opens with a byte-order mark (`U+FEFF`) put the mark on the first field line, so `retry` failed the field-name match and the assertion reported "no retry directive was found" even when the directive was present and first. The wire-level scan now strips a single leading BOM the same way `SseFrameParser` does, so a BOM-prefixed stream is handled consistently with the parser.
+
 ## [0.5.0] - 2026-06-06: value-pinning retry-first assertion
 
 Minor release. Adds a value-pinning `HasSseRetryDirectiveFirst(int millis)` overload across all three receivers, so the leading `retry:` directive's position and value can be asserted in a single read of a forward-only response body. Purely additive; the `0.3.0` ApiCompat baseline is preserved.
