@@ -579,13 +579,20 @@ public static class SseStreamAndHttpAssertions
                 }
                 while (read > 0);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // Cooperative cancellation at any point in the read pipeline (acquiring the body
-                // stream or reading it) is the clean teardown signal.
+                // Cooperative cancellation via the supplied token at any point in the read pipeline
+                // (acquiring the body stream or reading it) is the clean teardown signal.
             }
 
             return AssertionResult.Passed;
+        }
+        catch (OperationCanceledException ex)
+        {
+            // An OperationCanceledException whose source is not the supplied token (most commonly a
+            // TaskCanceledException from HttpClient.Timeout on a stalled server) is not the
+            // cooperative teardown this assertion verifies, so it fails rather than passing silently.
+            return AssertionResult.Failed(ForeignCancellationMessage(ex));
         }
         catch (IOException ex)
         {
@@ -600,6 +607,18 @@ public static class SseStreamAndHttpAssertions
             ArrayPool<byte>.Shared.Return(buffer);
         }
     }
+
+    /// <summary>Builds the failure message for a read cancelled by a token other than the one the
+    /// assertion was given (for example, an <see cref="HttpClient.Timeout"/> firing on a stalled
+    /// server), which is not the cooperative teardown <c>EndsCleanlyOnCancellation</c> verifies.</summary>
+    /// <param name="exception">The cancellation exception that surfaced from a foreign token.</param>
+    /// <returns>The failure message naming the exception type and message.</returns>
+    private static string ForeignCancellationMessage(OperationCanceledException exception)
+        => string.Concat(
+            "the read to be cancelled by the supplied cancellation token\n  but it was cancelled by a different token (for example, an HttpClient timeout): ",
+            exception.GetType().Name,
+            ": ",
+            exception.Message);
 
     private static AssertionResult EvaluateFirstEventWithCancellation(
         string body, int bytesReceived, bool cancelled, string expectedEventName)

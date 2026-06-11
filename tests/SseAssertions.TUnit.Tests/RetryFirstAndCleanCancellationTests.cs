@@ -82,6 +82,23 @@ internal sealed class RetryFirstAndCleanCancellationTests
     }
 
     [Test]
+    public async Task String_BomBeforeRetry_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // A stream that opens with a UTF-8 BOM (U+FEFF) must not hide the leading retry directive
+        // from the wire-level scan; the BOM is stripped the same way SseFrameParser strips it.
+        await Assert.That("\uFEFFretry: 5000\nevent: tick\ndata: 1\n\n").HasSseRetryDirectiveFirst();
+    }
+
+    [Test]
+    public async Task Http_BomBeforeRetry_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var response = BuildResponse("\uFEFFretry: 5000\nevent: tick\ndata: 1\n\n", "text/event-stream");
+        await Assert.That(response).HasSseRetryDirectiveFirst(cancellationToken: ct);
+    }
+
+    [Test]
     public async Task Stream_AspNetRetryControlFrame_Passes(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -333,11 +350,32 @@ internal sealed class RetryFirstAndCleanCancellationTests
     }
 
     [Test]
-    public async Task EndsCleanly_OperationCanceled_Passes(CancellationToken ct)
+    public async Task EndsCleanly_ForeignOperationCanceled_Fails(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        // An OperationCanceledException thrown while the supplied token is NOT canceled is a foreign
+        // cancellation (for example, an internal read timeout), not the cooperative teardown the
+        // assertion verifies, so it must fail rather than pass silently.
         using var stream = new ThrowingStream(new OperationCanceledException());
-        await Assert.That(stream).EndsCleanlyOnCancellation(ct);
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(stream).EndsCleanlyOnCancellation(ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("a different token");
+    }
+
+    [Test]
+    public async Task EndsCleanly_TokenCanceledBareOce_Passes(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // When the supplied token IS canceled, even a bare OperationCanceledException (one that does
+        // not carry the token) is the clean cooperative-teardown signal: the discriminator is whether
+        // the supplied token was canceled, so streams that throw untagged OCEs on cancellation pass.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        using var stream = new ThrowingStream(new OperationCanceledException());
+        await Assert.That(stream).EndsCleanlyOnCancellation(cts.Token);
     }
 
     [Test]
@@ -416,11 +454,32 @@ internal sealed class RetryFirstAndCleanCancellationTests
     }
 
     [Test]
-    public async Task Http_EndsCleanly_OperationCanceled_Passes(CancellationToken ct)
+    public async Task Http_EndsCleanly_ForeignOperationCanceled_Fails(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var response = BuildResponseFromStream(new ThrowingStream(new OperationCanceledException()), "text/event-stream");
-        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("a different token");
+    }
+
+    [Test]
+    public async Task Http_EndsCleanly_ClientTimeoutForeignToken_Fails(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // HttpClient.Timeout surfaces as a TaskCanceledException (an OperationCanceledException) whose
+        // source is NOT the supplied token. A stalled server killed by the client timeout must fail
+        // the assertion, not pass as a clean cooperative teardown.
+        using var response = BuildResponseFromStream(new ThrowingStream(new TaskCanceledException()), "text/event-stream");
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("a different token");
     }
 
     [Test]
@@ -502,12 +561,14 @@ internal sealed class RetryFirstAndCleanCancellationTests
     public async Task Http_EndsCleanly_CancellationDuringStreamAcquisition_Passes(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        // Cancellation that surfaces while acquiring the body stream (ReadAsStreamAsync), before
-        // the read loop is entered, is still the clean cooperative-teardown signal the assertion
-        // checks for, not an exception that escapes it.
+        // Cancellation that surfaces while acquiring the body stream (ReadAsStreamAsync) under the
+        // supplied (canceled) token, before the read loop is entered, is still the clean cooperative
+        // teardown signal the assertion checks for, not an exception that escapes it.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
         using var response = BuildResponseFromContent(
             new ThrowingOnAcquireContent(new OperationCanceledException()), "text/event-stream");
-        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: ct);
+        await Assert.That(response).EndsCleanlyOnCancellation(cancellationToken: cts.Token);
     }
 
     private static MemoryStream ToStream(string body) => new(Encoding.UTF8.GetBytes(body));
