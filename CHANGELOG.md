@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-14: complete the HasSseEvent narrowing chain
+
+Minor release. Adds three narrowers to the `HasSseEvent(eventName)` chain on the `string` receiver: `WithId`, `WithRetryMillis`, and `WithDataParsedAs<T>`. The parser already recorded each frame's `id:` and `retry:` directives on `SseEvent`, and the README and `SseFrameParser` documentation already described these narrowers, but the chain methods did not exist. This release ships them. Purely additive; the `0.5.1` ApiCompat baseline is preserved.
+
+### Added
+
+- **`WithId(string id)`** narrows the chain to frames carrying the given `id:` directive (matched case-sensitively; a frame without an `id:` directive never matches). On no match the failure lists every observed `Id` for events of the requested type, rendering frames without an `id:` directive as `<absent>`.
+- **`WithRetryMillis(Func<int?, bool> predicate)`** narrows to frames whose `RetryMillis` satisfies the predicate (`null` for frames without a `retry:` directive). On no match the failure lists every observed retry value.
+- **`WithDataParsedAs<T>(Func<string, T> parse, Func<T, bool> predicate)`** deserializes each candidate frame's `Data` with the caller-supplied `parse` delegate and counts frames whose parsed value satisfies `predicate`. Supply a reflection-free parser (for example a source-generated `JsonSerializer.Deserialize` with a `JsonTypeInfo<T>`) to keep the assertion AOT-compatible. If the deserializer throws, the assertion fails naming the exception type, its message, and the offending (truncated) data.
+
 ## [0.5.1] - 2026-06-11: correct cancellation-token attribution and BOM handling
 
 Patch release. Two correctness fixes in the cancellation and retry-first assertions. No public API change; the `0.3.0` ApiCompat baseline is preserved.
@@ -159,7 +169,9 @@ The wider surface lands at 0.1.0 as a reviewed pull request:
 - Source Link, deterministic builds, embedded PDB.
 - TUnit dependency pinned to **1.44.39**.
 
-[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.3.0...v0.4.0

@@ -48,8 +48,10 @@ mental model doesn't match the wire format.
 
 - A WHATWG / W3C-compliant frame parser (`SseFrameParser.Parse(string)`) that
   produces `IReadOnlyList<SseEvent>` records.
-- A TUnit `HasSseEvent("tick")` chain on the `string` receiver with
-  `WithData(predicate)` + `AtLeast(n)` / `AtMost(n)` / `Exactly(n)` terminators.
+- A TUnit `HasSseEvent("tick")` chain on the `string` receiver with the
+  `WithData(predicate)` / `WithDataParsedAs<T>(parse, predicate)` / `WithId(id)`
+  / `WithRetryMillis(predicate)` narrowers and `AtLeast(n)` / `AtMost(n)` /
+  `Exactly(n)` terminators.
 - Flat `HasSseEvent(eventName, minCount, ...)` entry points on `Stream` and
   `HttpResponseMessage`, with cancellation-bounded partial-buffer reads and
   default-on `Content-Type: text/event-stream` validation.
@@ -197,7 +199,7 @@ rule described here.
 
 | Receiver | Entry point | Returns | Chain methods |
 |---|---|---|---|
-| `string` | `.HasSseEvent(eventName)` | `SseHasEventAssertion` (chain) | `WithData(Func<string, bool>)`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
+| `string` | `.HasSseEvent(eventName)` | `SseHasEventAssertion` (chain) | `WithData(Func<string, bool>)`, `WithDataParsedAs<T>(Func<string, T>, Func<T, bool>)`, `WithId(string)`, `WithRetryMillis(Func<int?, bool>)`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
 | `string` | `.IsServerSentEventsStream()` | flat - `AssertionResult` | - |
 | `Stream` | `.HasSseEvent(eventName, minCount, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
@@ -434,8 +436,6 @@ Read this before opening a feature request.
   and combines with cancellation for indefinite streams (Pattern 5(b)). A
   true streaming `IAsyncEnumerable<SseEvent>` mode is a candidate for a future
   release.
-- **`WithRetryMillis(predicate)`.** Per-event retry-value narrowers are
-  deferred until consumer demand surfaces.
 - **`OfType(name)` chain method.** Redundant with `HasSseEvent(name)`.
 - **`InAnyOrder()` chain method.** Set-semantics adds complexity for marginal
   benefit; the dominant pattern is order-insensitive `AtLeast(n)`.
@@ -452,7 +452,7 @@ Read this before opening a feature request.
 - **Chain on the `string` receiver.** SSE assertions compose, so a chain (`HasSseEvent(name).WithData(...).AtLeast(n)`) stays linear where flat overloads would explode combinatorially. Same shape as `LogAssertions`' `HasLogged().WithException<T>().AtLeast(n)`.
 - **Flat methods on the async receivers.** `Stream` / `HttpResponseMessage` must read the body inside the assertion; a synchronous chain over an async read would force every chain method to return `Task`, which reads awkwardly. The flat form encodes the common case (event name + min count + optional content-type check + cancellation) in one call; the chain stays available on `string`.
 - **Content-Type `text/event-stream` validation is on by default.** It catches the foot-gun where a test hits the wrong endpoint and gets HTML / JSON / a 500: without it the parser silently yields zero events and the failure is confusing. Opt out with `strictContentType: false`. Comparison is case-insensitive (RFC 9110).
-- **`Func<string, bool>` for data predicates, not `JsonTypeInfo<T>`.** Zero coupling: pass any deserialization strategy inside the predicate. A typed overload would force an STJ dependency or an adapter. Per the family's cross-package rule the package takes no `JsonAssertions` reference; JSON composition happens at your call site.
+- **Caller-supplied deserialization, not `JsonTypeInfo<T>`.** `WithData` takes a `Func<string, bool>` and `WithDataParsedAs<T>` takes a `Func<string, T>` parse delegate, so any deserialization strategy stays at your call site. Neither forces a `System.Text.Json` dependency or an adapter; per the family's cross-package rule the package takes no `JsonAssertions` reference. Supply a source-generated `JsonTypeInfo<T>` inside the delegate to keep parsing AOT-compatible.
 - **Cancellation-bounded reads.** The `Stream` / `HttpResponseMessage` overloads use an `ArrayPool<byte>`-backed read loop rather than `ReadAsStringAsync` (which discards its partial buffer on cancellation); the loop parses whatever bytes arrived as best-effort SSE. Encoding comes from the `Content-Type` charset, UTF-8 fallback.
 
 ## Stability intent (pre-1.0)
@@ -476,8 +476,6 @@ The 1.0 milestone signals API stability.
   points so the chain shape matches across all three receivers.
 - Streaming async-enumerable read of `HttpResponseMessage` for indefinite-stream
   endpoints; yields `SseEvent` on demand.
-- `WithRetryMillis(predicate)` narrower for protocol-conformance tests
-  (`retry: 5000` first-event patterns).
 
 Demand-driven; no fixed timeline.
 

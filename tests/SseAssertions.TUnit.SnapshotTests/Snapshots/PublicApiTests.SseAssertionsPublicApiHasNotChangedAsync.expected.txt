@@ -25,6 +25,7 @@ namespace SseAssertions
         public static string DataPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<string> dataValues) { }
         public static string EventCountMismatch(string eventName, int expected, int actual, SseAssertions.SseCountComparison comparison) { }
         public static string EventNotFound(string eventName, System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> available) { }
+        public static string IdNotMatched(string eventName, string expectedId, System.Collections.Generic.IReadOnlyList<string?> idValues) { }
         public static string ParseFailure(string body) { }
         public static string RetryMillisPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<int?> retryValues) { }
         public static string UncleanCancellation(System.Exception exception) { }
