@@ -271,9 +271,11 @@ public sealed class SseHasEventAssertion : Assertion<string>
         List<string?> idNearMisses,
         List<int?> retryNearMisses)
     {
-        var hasNarrower = _dataPredicate is not null || _parsedNarrow is not null || _hasIdFilter || _retryPredicate is not null;
-
-        if (matchCount is 0 && !hasNarrower)
+        // An event of the requested type was observed when it either fully matched or failed a
+        // narrower (a near-miss). With none of either, the event is genuinely absent, whether or not a
+        // narrower is configured, so the event-absent diagnostic takes precedence over a count mismatch.
+        var nameMatched = matchCount + dataNearMisses.Count + idNearMisses.Count + retryNearMisses.Count;
+        if (nameMatched is 0)
         {
             return AssertionResult.Failed(SseFailureMessage.EventNotFound(_eventName, events));
         }

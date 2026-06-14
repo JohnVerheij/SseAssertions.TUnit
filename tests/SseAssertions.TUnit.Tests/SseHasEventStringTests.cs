@@ -46,6 +46,21 @@ internal sealed class SseHasEventStringTests
     }
 
     [Test]
+    public async Task HasSseEvent_AbsentEvent_WithNarrower_StillReportsEventNotFound(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // No "missing" event exists at all, so the absent diagnostic must win even with a narrower
+        // configured, rather than falling through to a less specific count mismatch.
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(ThreeTicks).HasSseEvent("missing").WithId("x").AtLeast(1);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("\"missing\"");
+        await Assert.That(ex.Message).Contains("event=tick");
+    }
+
+    [Test]
     public async Task HasSseEvent_AtLeast_BelowThreshold_FailsWithCountMismatch(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
