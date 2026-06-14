@@ -11,7 +11,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions.TUnit</PackageId>
     <ProductName>SseAssertions.TUnit</ProductName>
-    <Version>0.5.1</Version>
+    <Version>0.6.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. HasSseEvent(eventName) chain on the string receiver with WithData / AtLeast / AtMost / Exactly terminators; flat HasSseEvent(eventName, minCount, ...) on Stream and HttpResponseMessage with cancellation-bounded partial-buffer reads and default-on Content-Type: text/event-stream validation. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
@@ -30,12 +30,11 @@
          Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0. -->
     <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
 
-    <!-- ApiCompat baseline. v0.1.0 introduces SseHasEventAssertion, the HasSseEvent generated
-         entry points on string / Stream / HttpResponseMessage, plus follow-on chain types
-         from the source generator. All additions are additive; the v0.0.1 surface
-         (IsServerSentEventsStream) is preserved unchanged. CompatibilitySuppressions.xml
-         records the accepted additive differences. -->
-    <PackageValidationBaselineVersion>0.3.0</PackageValidationBaselineVersion>
+    <!-- ApiCompat baseline. v0.6.0 adds the WithId / WithRetryMillis / WithDataParsedAs<T>
+         narrowers to the HasSseEvent chain. All additions are additive; the prior surface is
+         preserved unchanged. CompatibilitySuppressions.xml records the accepted additive
+         differences against the 0.5.1 baseline. -->
+    <PackageValidationBaselineVersion>0.5.1</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>

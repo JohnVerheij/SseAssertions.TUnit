@@ -11,9 +11,10 @@ namespace SseAssertions.TUnit;
 /// <summary>
 /// Fluent TUnit assertion that walks a Server-Sent Events wire-format string and verifies the
 /// presence (or count) of frames matching a given event-type name. Constructed by the TUnit
-/// source generator from the <c>HasSseEvent(string)</c> extension on <see cref="string"/>; chain
-/// methods (<c>WithData</c>, <c>AtLeast</c>, <c>AtMost</c>, <c>Exactly</c>) narrow or terminate
-/// the assertion.
+/// source generator from the <c>HasSseEvent(string)</c> extension on <see cref="string"/>; the
+/// narrower methods (<c>WithData</c>, <c>WithDataParsedAs&lt;T&gt;</c>, <c>WithId</c>,
+/// <c>WithRetryMillis</c>) constrain which frames count and the count terminators (<c>AtLeast</c>,
+/// <c>AtMost</c>, <c>Exactly</c>) close the assertion.
 /// </summary>
 /// <remarks>
 /// The chain runs against the receiver string parsed via <see cref="SseFrameParser.Parse(string)"/>
@@ -26,6 +27,10 @@ public sealed class SseHasEventAssertion : Assertion<string>
 {
     private readonly string _eventName;
     private Func<string, bool>? _dataPredicate;
+    private Func<string, (bool Threw, Exception? Exception, bool Matched)>? _parsedNarrow;
+    private bool _hasIdFilter;
+    private string? _expectedId;
+    private Func<int?, bool>? _retryPredicate;
     private SseCountComparison _comparison = SseCountComparison.AtLeast;
     private int _expectedCount = 1;
 
@@ -55,6 +60,76 @@ public sealed class SseHasEventAssertion : Assertion<string>
         ArgumentNullException.ThrowIfNull(predicate);
         _dataPredicate = predicate;
         Context.ExpressionBuilder.Append(".WithData(...)");
+        return this;
+    }
+
+    /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Data"/> deserializes via
+    /// <paramref name="parse"/> into a <typeparamref name="T"/> that satisfies
+    /// <paramref name="predicate"/>.</summary>
+    /// <typeparam name="T">The type the frame data is parsed into.</typeparam>
+    /// <param name="parse">The deserializer applied to each candidate frame's
+    /// <see cref="SseEvent.Data"/>. Supply a reflection-free parser (for example a
+    /// source-generated <c>JsonSerializer.Deserialize</c> with a <c>JsonTypeInfo&lt;T&gt;</c>) so
+    /// the assertion stays AOT-compatible. If it throws, the assertion fails naming the
+    /// deserializer exception and the offending data.</param>
+    /// <param name="predicate">The predicate applied to the parsed value; frames for which it
+    /// returns <see langword="true"/> are counted.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="parse"/> or
+    /// <paramref name="predicate"/> is <see langword="null"/>.</exception>
+    public SseHasEventAssertion WithDataParsedAs<T>(Func<string, T> parse, Func<T, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(parse);
+        ArgumentNullException.ThrowIfNull(predicate);
+        _parsedNarrow = data =>
+        {
+            T parsed;
+            try
+            {
+                parsed = parse(data);
+            }
+#pragma warning disable CA1031 // Any deserializer exception is surfaced as a DataDeserializationFailed diagnostic.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                return (true, ex, false);
+            }
+
+            return (false, null, predicate(parsed));
+        };
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithDataParsedAs<{typeof(T).Name}>(...)");
+        return this;
+    }
+
+    /// <summary>Narrows the assertion to frames carrying the given <c>id:</c> directive.</summary>
+    /// <param name="id">The expected <see cref="SseEvent.Id"/>. Matched case-sensitively; a frame
+    /// without an <c>id:</c> directive never matches.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="id"/> is
+    /// <see langword="null"/>.</exception>
+    public SseHasEventAssertion WithId(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        _hasIdFilter = true;
+        _expectedId = id;
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        return this;
+    }
+
+    /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.RetryMillis"/> satisfies
+    /// the supplied predicate.</summary>
+    /// <param name="predicate">The retry-value predicate. Called with each candidate frame's
+    /// <see cref="SseEvent.RetryMillis"/> (<see langword="null"/> for frames without a
+    /// <c>retry:</c> directive); frames for which it returns <see langword="true"/> are
+    /// counted.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is
+    /// <see langword="null"/>.</exception>
+    public SseHasEventAssertion WithRetryMillis(Func<int?, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        _retryPredicate = predicate;
+        Context.ExpressionBuilder.Append(".WithRetryMillis(...)");
         return this;
     }
 
@@ -117,8 +192,20 @@ public sealed class SseHasEventAssertion : Assertion<string>
         }
 
         var events = SseFrameParser.Parse(body);
-        var matchingEvents = new List<SseEvent>();
-        var matchingData = new List<string>();
+        return Task.FromResult(Evaluate(events));
+    }
+
+    /// <summary>Counts the frames matching the event name and every configured narrower, then
+    /// returns the pass result or the most specific failure diagnostic.</summary>
+    /// <param name="events">The parsed events from the receiver.</param>
+    /// <returns>The assertion result.</returns>
+    private AssertionResult Evaluate(IReadOnlyList<SseEvent> events)
+    {
+        var matchCount = 0;
+        var dataNearMisses = new List<string>();
+        var idNearMisses = new List<string?>();
+        var retryNearMisses = new List<int?>();
+
         foreach (var evt in events)
         {
             if (!string.Equals(evt.EventName, _eventName, StringComparison.Ordinal))
@@ -126,33 +213,88 @@ public sealed class SseHasEventAssertion : Assertion<string>
                 continue;
             }
 
+            if (_parsedNarrow is not null)
+            {
+                var (threw, exception, matched) = _parsedNarrow(evt.Data);
+                if (threw)
+                {
+                    return AssertionResult.Failed(SseFailureMessage.DataDeserializationFailed(_eventName, evt.Data, exception!));
+                }
+
+                if (!matched)
+                {
+                    dataNearMisses.Add(evt.Data);
+                    continue;
+                }
+            }
+
             if (_dataPredicate is not null && !_dataPredicate(evt.Data))
             {
-                matchingData.Add(evt.Data);
+                dataNearMisses.Add(evt.Data);
                 continue;
             }
 
-            matchingEvents.Add(evt);
+            if (_hasIdFilter && !string.Equals(evt.Id, _expectedId, StringComparison.Ordinal))
+            {
+                idNearMisses.Add(evt.Id);
+                continue;
+            }
+
+            if (_retryPredicate is not null && !_retryPredicate(evt.RetryMillis))
+            {
+                retryNearMisses.Add(evt.RetryMillis);
+                continue;
+            }
+
+            matchCount++;
         }
 
-        var matchCount = matchingEvents.Count;
-        if (CountSatisfiesComparison(matchCount))
+        return CountSatisfiesComparison(matchCount)
+            ? AssertionResult.Passed
+            : DescribeFailure(events, matchCount, dataNearMisses, idNearMisses, retryNearMisses);
+    }
+
+    /// <summary>Selects the most specific failure message for an unmet expectation: event-absent,
+    /// then per-narrower near-miss diagnostics, falling back to a count mismatch.</summary>
+    /// <param name="events">The parsed events (for the event-absent listing).</param>
+    /// <param name="matchCount">The number of fully matching frames.</param>
+    /// <param name="dataNearMisses">Data values of frames that matched the name but failed a data
+    /// narrower.</param>
+    /// <param name="idNearMisses">Id values of frames that matched up to the id narrower.</param>
+    /// <param name="retryNearMisses">Retry values of frames that matched up to the retry
+    /// narrower.</param>
+    /// <returns>The failure result.</returns>
+    private AssertionResult DescribeFailure(
+        IReadOnlyList<SseEvent> events,
+        int matchCount,
+        List<string> dataNearMisses,
+        List<string?> idNearMisses,
+        List<int?> retryNearMisses)
+    {
+        var hasNarrower = _dataPredicate is not null || _parsedNarrow is not null || _hasIdFilter || _retryPredicate is not null;
+
+        if (matchCount is 0 && !hasNarrower)
         {
-            return Task.FromResult(AssertionResult.Passed);
+            return AssertionResult.Failed(SseFailureMessage.EventNotFound(_eventName, events));
         }
 
-        if (matchCount is 0 && _dataPredicate is null)
+        if (matchCount is 0 && dataNearMisses.Count > 0)
         {
-            return Task.FromResult(AssertionResult.Failed(SseFailureMessage.EventNotFound(_eventName, events)));
+            return AssertionResult.Failed(SseFailureMessage.DataPredicateNotMatched(_eventName, dataNearMisses));
         }
 
-        if (_dataPredicate is not null && matchCount is 0 && matchingData.Count > 0)
+        if (matchCount is 0 && idNearMisses.Count > 0)
         {
-            return Task.FromResult(AssertionResult.Failed(SseFailureMessage.DataPredicateNotMatched(_eventName, matchingData)));
+            return AssertionResult.Failed(SseFailureMessage.IdNotMatched(_eventName, _expectedId!, idNearMisses));
         }
 
-        return Task.FromResult(AssertionResult.Failed(
-            SseFailureMessage.EventCountMismatch(_eventName, _expectedCount, matchCount, _comparison)));
+        if (matchCount is 0 && retryNearMisses.Count > 0)
+        {
+            return AssertionResult.Failed(SseFailureMessage.RetryMillisPredicateNotMatched(_eventName, retryNearMisses));
+        }
+
+        return AssertionResult.Failed(
+            SseFailureMessage.EventCountMismatch(_eventName, _expectedCount, matchCount, _comparison));
     }
 
     /// <inheritdoc/>

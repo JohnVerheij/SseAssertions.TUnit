@@ -35,6 +35,9 @@ namespace SseAssertions.TUnit
         public SseAssertions.TUnit.SseHasEventAssertion Exactly(int count) { }
         protected override string GetExpectation() { }
         public SseAssertions.TUnit.SseHasEventAssertion WithData(System.Func<string, bool> predicate) { }
+        public SseAssertions.TUnit.SseHasEventAssertion WithDataParsedAs<T>(System.Func<string, T> parse, System.Func<T, bool> predicate) { }
+        public SseAssertions.TUnit.SseHasEventAssertion WithId(string id) { }
+        public SseAssertions.TUnit.SseHasEventAssertion WithRetryMillis(System.Func<int?, bool> predicate) { }
     }
     public static class SseStreamAndHttpAssertions
     {

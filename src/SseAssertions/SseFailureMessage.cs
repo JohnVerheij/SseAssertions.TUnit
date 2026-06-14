@@ -142,6 +142,51 @@ public static class SseFailureMessage
         return sb.ToString();
     }
 
+    /// <summary>Produces the failure message for "no event of the requested type carried the
+    /// expected <c>id:</c>".</summary>
+    /// <param name="eventName">The event-type name the chain asked for.</param>
+    /// <param name="expectedId">The <c>id:</c> value the chain required.</param>
+    /// <param name="idValues">The <c>Id</c> values of every event of the requested type observed
+    /// in the stream (<see langword="null"/> entries represent frames without an <c>id:</c>
+    /// directive).</param>
+    /// <returns>A failure message listing every observed <c>Id</c> value so the consumer can see
+    /// why none carried the expected id.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="eventName"/>,
+    /// <paramref name="expectedId"/>, or <paramref name="idValues"/> is
+    /// <see langword="null"/>.</exception>
+    public static string IdNotMatched(string eventName, string expectedId, IReadOnlyList<string?> idValues)
+    {
+        ArgumentNullException.ThrowIfNull(eventName);
+        ArgumentNullException.ThrowIfNull(expectedId);
+        ArgumentNullException.ThrowIfNull(idValues);
+
+        var sb = new StringBuilder();
+        sb.Append("to find at least one event of type \"")
+          .Append(eventName)
+          .Append("\" with id \"")
+          .Append(expectedId)
+          .Append("\"\n  but observed ")
+          .Append(idValues.Count.ToString(CultureInfo.InvariantCulture))
+          .Append(" event(s) of that type; none carried that id");
+        if (idValues.Count > 0)
+        {
+            sb.Append(":\n");
+            for (var i = 0; i < idValues.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append('\n');
+                }
+
+                var value = idValues[i];
+                sb.Append("    id: ");
+                sb.Append(value is null ? "<absent>" : string.Concat("\"", value, "\""));
+            }
+        }
+
+        return sb.ToString();
+    }
+
     /// <summary>Produces the failure message for an exception thrown by the data deserializer.</summary>
     /// <param name="eventName">The event-type name the chain asked for.</param>
     /// <param name="data">The raw <c>Data</c> value the deserializer was applied to (truncated at

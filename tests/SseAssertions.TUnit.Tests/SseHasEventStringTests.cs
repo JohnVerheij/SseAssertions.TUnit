@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions.Exceptions;
@@ -157,5 +158,156 @@ internal sealed class SseHasEventStringTests
 
         await Assert.That(ex!.Message).Contains("InvalidOperationException");
         await Assert.That(ex.Message).Contains("boom");
+    }
+
+    // ---- WithId (v0.6.0) ----
+
+    private static readonly string IdsBody = string.Concat(
+        "event: tick\nid: a\ndata: 1\n\n",
+        "event: tick\nid: b\ndata: 2\n\n",
+        "event: tick\ndata: 3\n\n");
+
+    [Test]
+    public async Task HasSseEvent_WithId_NarrowsToMatchingId(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(IdsBody).HasSseEvent("tick").WithId("a").Exactly(1);
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithId_NoMatch_FailsListingObservedIds(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(IdsBody).HasSseEvent("tick").WithId("zzz").AtLeast(1);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("none carried that id");
+        await Assert.That(ex.Message).Contains("id: \"a\"");
+        await Assert.That(ex.Message).Contains("id: <absent>");
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithId_Null_ThrowsArgumentNullException(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var body = IdsBody;
+        string nullId = null!;
+        var ex = await Assert.That(async () => await Assert.That(body).HasSseEvent("tick").WithId(nullId))
+            .Throws<System.ArgumentNullException>();
+        await Assert.That(ex).IsNotNull();
+    }
+
+    // ---- WithRetryMillis (v0.6.0) ----
+
+    private static readonly string RetryBody = string.Concat(
+        "event: tick\nretry: 5000\ndata: 1\n\n",
+        "event: tick\nretry: 1000\ndata: 2\n\n",
+        "event: tick\ndata: 3\n\n");
+
+    [Test]
+    public async Task HasSseEvent_WithRetryMillis_NarrowsToMatchingValue(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(RetryBody).HasSseEvent("tick").WithRetryMillis(static r => r == 5000).Exactly(1);
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithRetryMillis_NoMatch_FailsListingObservedRetries(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(RetryBody).HasSseEvent("tick").WithRetryMillis(static r => r == 9999).AtLeast(1);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("RetryMillis satisfied the predicate");
+        await Assert.That(ex.Message).Contains("retry: 5000");
+        await Assert.That(ex.Message).Contains("retry: <absent>");
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithRetryMillis_Null_ThrowsArgumentNullException(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var body = RetryBody;
+        System.Func<int?, bool> nullPredicate = null!;
+        var ex = await Assert.That(async () =>
+                await Assert.That(body).HasSseEvent("tick").WithRetryMillis(nullPredicate))
+            .Throws<System.ArgumentNullException>();
+        await Assert.That(ex).IsNotNull();
+    }
+
+    // ---- WithDataParsedAs<T> (v0.6.0) ----
+
+    private static readonly string NonIntBody = string.Concat("event: tick\n", "data: notanumber\n\n");
+
+    [Test]
+    public async Task HasSseEvent_WithDataParsedAs_NarrowsToParsedPredicate(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(ThreeTicks)
+            .HasSseEvent("tick")
+            .WithDataParsedAs(static d => int.Parse(d, CultureInfo.InvariantCulture), static v => v == 2)
+            .Exactly(1);
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithDataParsedAs_PredicateNoMatch_FailsWithDataMessage(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(ThreeTicks)
+                .HasSseEvent("tick")
+                .WithDataParsedAs(static d => int.Parse(d, CultureInfo.InvariantCulture), static v => v == 99)
+                .AtLeast(1);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("Data satisfied the predicate");
+        await Assert.That(ex.Message).Contains("data: \"1\"");
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithDataParsedAs_ParseThrows_FailsWithDeserializerMessage(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ex = await Assert.That(async () =>
+        {
+            await Assert.That(NonIntBody)
+                .HasSseEvent("tick")
+                .WithDataParsedAs(static d => int.Parse(d, CultureInfo.InvariantCulture), static v => v >= 0)
+                .AtLeast(1);
+        }).Throws<AssertionException>();
+
+        await Assert.That(ex!.Message).Contains("deserializer threw");
+        await Assert.That(ex.Message).Contains("FormatException");
+        await Assert.That(ex.Message).Contains("notanumber");
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithDataParsedAs_NullParse_ThrowsArgumentNullException(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var body = ThreeTicks;
+        System.Func<string, int> nullParse = null!;
+        var ex = await Assert.That(async () =>
+                await Assert.That(body).HasSseEvent("tick").WithDataParsedAs(nullParse, static v => v == 1))
+            .Throws<System.ArgumentNullException>();
+        await Assert.That(ex).IsNotNull();
+    }
+
+    [Test]
+    public async Task HasSseEvent_WithDataParsedAs_NullPredicate_ThrowsArgumentNullException(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var body = ThreeTicks;
+        System.Func<int, bool> nullPredicate = null!;
+        var ex = await Assert.That(async () => await Assert.That(body)
+                .HasSseEvent("tick")
+                .WithDataParsedAs(static d => int.Parse(d, CultureInfo.InvariantCulture), nullPredicate))
+            .Throws<System.ArgumentNullException>();
+        await Assert.That(ex).IsNotNull();
     }
 }

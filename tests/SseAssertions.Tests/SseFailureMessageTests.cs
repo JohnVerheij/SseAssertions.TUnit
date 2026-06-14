@@ -186,6 +186,46 @@ internal sealed class SseFailureMessageTests
             .Throws<ArgumentNullException>();
     }
 
+    private static readonly string?[] IdValuesSample = ["a", "b", null];
+
+    [Test]
+    public async Task IdNotMatched_ListsObservedIdValuesIncludingAbsent(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var msg = SseFailureMessage.IdNotMatched("tick", "z", IdValuesSample);
+
+        await Assert.That(msg).Contains("\"tick\"");
+        await Assert.That(msg).Contains("with id \"z\"");
+        await Assert.That(msg).Contains("none carried that id");
+        await Assert.That(msg).Contains("id: \"a\"");
+        await Assert.That(msg).Contains("id: \"b\"");
+        await Assert.That(msg).Contains("id: <absent>");
+    }
+
+    [Test]
+    public async Task IdNotMatched_EmptyIdValues_OmitsList(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var msg = SseFailureMessage.IdNotMatched("tick", "z", Array.Empty<string?>());
+
+        await Assert.That(msg).Contains("none carried that id");
+        await Assert.That(msg.Contains("id: ", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
+    [Arguments(0)]
+    [Arguments(1)]
+    [Arguments(2)]
+    public async Task IdNotMatched_NullArguments_ThrowArgumentNullException(int whichNull, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(() => SseFailureMessage.IdNotMatched(
+                whichNull == 0 ? null! : "tick",
+                whichNull == 1 ? null! : "z",
+                whichNull == 2 ? null! : Array.Empty<string?>()))
+            .Throws<ArgumentNullException>();
+    }
+
     [Test]
     public async Task DataDeserializationFailed_IncludesExceptionTypeMessageAndTruncatedData(CancellationToken ct)
     {
