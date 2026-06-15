@@ -223,12 +223,11 @@ rule described here.
 | `Stream` | `.EndsCleanlyOnCancellation(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.EndsCleanlyOnCancellation(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
-The chain pattern is available on the `string` receiver, where the body is
-already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the
-body read happens inside the assertion call and the entry point is flat; if you
-need the chain over an HTTP response, read the body into a string in the test
-and assert on the string. The async-receiver chain is a candidate for a future
-release (see [Roadmap](#roadmap)).
+The same `HasSseEvent(eventName)` chain is available on all three receivers. On
+the `string` receiver the body is already in memory; on the `Stream` and
+`HttpResponseMessage` receivers the body read happens inside the assertion under
+the supplied cancellation token, and the narrowers and count terminators apply to
+the frames seen within that read.
 
 ## Failure diagnostics
 
@@ -467,9 +466,6 @@ The 1.0 milestone signals API stability.
 
 ## Roadmap
 
-- Async-receiver chains: bring `WithData`, `WithDataParsedAs<T>`, `AtMost`,
-  `Exactly`, `WithRetryMillis` to the `Stream` and `HttpResponseMessage` entry
-  points so the chain shape matches across all three receivers.
 - Streaming async-enumerable read of `HttpResponseMessage` for indefinite-stream
   endpoints; yields `SseEvent` on demand.
 

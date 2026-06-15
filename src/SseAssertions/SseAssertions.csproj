@@ -30,10 +30,9 @@
          Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0. -->
     <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
 
-    <!-- ApiCompat baseline. v0.7.0 adds the SseEventMatcher matching core, shared by the string,
-         Stream, and HttpResponseMessage HasSseEvent chains. Purely additive to the core surface;
-         CompatibilitySuppressions.xml records the accepted additive difference against the 0.6.0
-         baseline. -->
+    <!-- ApiCompat baseline. v0.7.0 is a lockstep bump with no public core change (the streaming
+         frame-narrower work lives entirely in the adapter). The only baseline diff is the assembly
+         version, recorded in CompatibilitySuppressions.xml against the 0.6.0 baseline. -->
     <PackageValidationBaselineVersion>0.6.0</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->

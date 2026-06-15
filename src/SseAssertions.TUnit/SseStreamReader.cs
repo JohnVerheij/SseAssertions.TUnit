@@ -40,8 +40,12 @@ internal static class SseStreamReader
                     await ms.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Only the supplied token's cancellation is captured as a partial read. A foreign
+                // cancellation (for example an HttpClient timeout, whose token is not the one passed
+                // here) propagates instead of being masked by the cancellation-cut diagnostic,
+                // matching the EndsCleanlyOnCancellation distinction added in 0.5.1.
                 cancelled = true;
             }
         }
@@ -52,6 +56,26 @@ internal static class SseStreamReader
 
         var bytes = ms.ToArray();
         return (encoding.GetString(bytes), bytes.Length, cancelled);
+    }
+
+    /// <summary>Acquires an HTTP response's SSE body stream and drains it, resolving the body
+    /// encoding from the response charset (UTF-8 fallback). The stream acquisition is intentionally
+    /// not passed the token: a cancellation during acquisition would throw out of the assertion
+    /// rather than surface as the cancellation-cut diagnostic, so the token bounds only the body
+    /// read, where cancellation is captured via the returned <c>Cancelled</c> flag.</summary>
+    /// <param name="response">The HTTP response whose body to read. Its <c>Content</c> is never null
+    /// (the getter returns an empty content), so the read is always safe.</param>
+    /// <param name="cancellationToken">Bounds the body read.</param>
+    /// <returns>The decoded body, the number of bytes received, and whether the read was cancelled by
+    /// <paramref name="cancellationToken"/>.</returns>
+    public static async Task<(string Body, int BytesReceived, bool Cancelled)> ReadResponseBodyAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var encoding = ResolveEncoding(response);
+        // CancellationToken.None is deliberate: cancellation during acquisition must not throw out of
+        // the assertion; the token below bounds the body read and yields the cancellation-cut flag.
+        var stream = await response.Content!.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
+        return await ReadAsync(stream, encoding, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Resolves the response body's text encoding from its <c>Content-Type</c> charset,

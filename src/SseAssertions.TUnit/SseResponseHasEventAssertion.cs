@@ -201,10 +201,8 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         // HttpResponseMessage.Content never returns null (the getter coalesces to an empty content),
         // so the body read is always safe; an empty body parses to zero events and fails with the
         // event-absent diagnostic, matching an empty stream.
-        var encoding = SseStreamReader.ResolveEncoding(response);
-        var stream = await response.Content!.ReadAsStreamAsync(_cancellationToken).ConfigureAwait(false);
-        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadAsync(
-            stream, encoding, _cancellationToken).ConfigureAwait(false);
+        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadResponseBodyAsync(
+            response, _cancellationToken).ConfigureAwait(false);
         return SseStreamEvaluation.Evaluate(_matcher, body, bytesReceived, cancelled);
     }
 

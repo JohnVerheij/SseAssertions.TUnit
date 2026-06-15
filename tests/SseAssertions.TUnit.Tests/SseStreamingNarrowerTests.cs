@@ -222,6 +222,31 @@ internal sealed class SseStreamingNarrowerTests
         await Assert.That(ex!.Message).Contains("but observed: 0");
     }
 
+    [Test]
+    public async Task Stream_ForeignCancellation_Propagates_NotReportedAsCut(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var stream = new ForeignCancelStream();
+
+        // The supplied token (default/None) never fires; the stream throws an OperationCanceledException
+        // of its own (modelling an HttpClient timeout). It must propagate, not be masked as a
+        // cancellation-cut diagnostic.
+        await Assert.That(async () => await Assert.That(stream).HasSseEvent("tick"))
+            .Throws<OperationCanceledException>();
+    }
+
+    [Test]
+    public async Task Response_NoContentType_StrictFalse_ResolvesUtf8AndPasses(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(TwoPrices)));
+        // No Content-Type header: ResolveEncoding's charset chain short-circuits to the UTF-8 fallback.
+        using var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+
+        await Assert.That(response).HasSseEvent("price", strictContentType: false, cancellationToken: ct)
+            .AtLeast(1);
+    }
+
     private static HttpResponseMessage BuildResponse(string body, string contentType)
     {
         var bytes = Encoding.UTF8.GetBytes(body);
@@ -292,6 +317,40 @@ internal sealed class SseStreamingNarrowerTests
             _position += n;
             return n;
         }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    /// <summary>Throws an <see cref="OperationCanceledException"/> that is not tied to the assertion's
+    /// supplied token, modelling a foreign cancellation (for example an <c>HttpClient</c> timeout).</summary>
+    private sealed class ForeignCancelStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new OperationCanceledException();
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => throw new OperationCanceledException();
 
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

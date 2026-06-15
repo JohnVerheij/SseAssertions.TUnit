@@ -18,22 +18,6 @@ namespace SseAssertions
         public string? Id { get; init; }
         public int? RetryMillis { get; init; }
     }
-    public sealed class SseEventMatcher
-    {
-        public SseEventMatcher(string eventName) { }
-        public SseAssertions.SseCountComparison Comparison { get; set; }
-        public System.Func<string, bool>? DataPredicate { get; set; }
-        public int ExpectedCount { get; set; }
-        public string? ExpectedId { get; set; }
-        public bool HasIdFilter { get; set; }
-        [System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
-                "Threw",
-                "Exception",
-                "Matched"})]
-        public System.Func<string, System.ValueTuple<bool, System.Exception?, bool>>? ParsedNarrow { get; set; }
-        public System.Func<int?, bool>? RetryPredicate { get; set; }
-        public string? Evaluate(System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> events) { }
-    }
     public static class SseFailureMessage
     {
         public static string CancellationCutRead(int bytesReceived, int eventsParsed, string partialBodyExcerpt) { }

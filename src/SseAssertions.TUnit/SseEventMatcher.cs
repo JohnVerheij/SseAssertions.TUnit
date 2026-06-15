@@ -1,24 +1,26 @@
 using System;
 using System.Collections.Generic;
+using SseAssertions;
 
-namespace SseAssertions;
+namespace SseAssertions.TUnit;
 
 /// <summary>
-/// Framework-neutral matching core shared by every <c>HasSseEvent</c> chain (the
+/// Framework-neutral matching engine shared by every <c>HasSseEvent</c> chain (the
 /// <see cref="string"/>, <see cref="System.IO.Stream"/>, and
-/// <see cref="System.Net.Http.HttpResponseMessage"/> receivers in <c>SseAssertions.TUnit</c>).
-/// Holds the configured event-name filter, the optional frame narrowers
-/// (data / parsed-data / id / retry) and the count comparison, and evaluates a parsed event list
-/// into either a pass or a failure-message string.
+/// <see cref="System.Net.Http.HttpResponseMessage"/> receivers). Holds the configured event-name
+/// filter, the optional frame narrowers (data / parsed-data / id / retry) and the count comparison,
+/// and evaluates a parsed event list into either a pass or a failure-message string.
 /// </summary>
 /// <remarks>
 /// Returning <see langword="null"/> for a pass (and a <see cref="SseFailureMessage"/>-composed
-/// string for a failure) keeps this type free of any test-framework dependency: the adapter wraps
-/// the result in its own assertion-result type. The narrower fields are mutated by the fluent
-/// chain's <c>WithData</c>/<c>WithDataParsedAs</c>/<c>WithId</c>/<c>WithRetryMillis</c> methods and
-/// the comparison by <c>AtLeast</c>/<c>AtMost</c>/<c>Exactly</c>.
+/// string for a failure) keeps the matching logic free of any TUnit dependency. An internal helper:
+/// the chains are its only constructors and they populate the parsed-data narrower through
+/// <see cref="SseDataNarrow"/>, which always supplies a non-null exception when a parse throws, so
+/// the matching code relies on that invariant. The narrower fields are mutated by the fluent chain's
+/// <c>WithData</c>/<c>WithDataParsedAs</c>/<c>WithId</c>/<c>WithRetryMillis</c> methods and the
+/// comparison by <c>AtLeast</c>/<c>AtMost</c>/<c>Exactly</c>.
 /// </remarks>
-public sealed class SseEventMatcher
+internal sealed class SseEventMatcher
 {
     private readonly string _eventName;
 

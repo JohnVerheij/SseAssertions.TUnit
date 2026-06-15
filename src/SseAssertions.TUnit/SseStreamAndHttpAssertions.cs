@@ -117,18 +117,8 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return AssertionResult.Failed(string.Concat(
-                "the first event to be \"",
-                eventName,
-                "\"\n  but the stream contained no events"));
-        }
-
-        var encoding = SseStreamReader.ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadResponseBodyAsync(
+            response, cancellationToken).ConfigureAwait(false);
         return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
     }
 
@@ -222,15 +212,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseEventsInOrderAssertion.Evaluate(System.Array.Empty<SseEvent>(), eventNames, strictOrdering);
-        }
-
-        var encoding = SseStreamReader.ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         var events = SseFrameParser.Parse(body);
         return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
     }
@@ -288,15 +270,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseFormatAssertions.EvaluateRetryDirective(System.Array.Empty<SseEvent>(), millis);
-        }
-
-        var encoding = SseStreamReader.ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         var events = SseFrameParser.Parse(body);
         return SseFormatAssertions.EvaluateRetryDirective(events, millis);
     }
@@ -345,15 +319,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseFormatAssertions.EvaluateRetryDirectiveFirst(string.Empty);
-        }
-
-        var encoding = SseStreamReader.ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
     }
 
@@ -407,15 +373,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseFormatAssertions.EvaluateRetryDirectiveFirst(string.Empty, millis);
-        }
-
-        var encoding = SseStreamReader.ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
     }
 
