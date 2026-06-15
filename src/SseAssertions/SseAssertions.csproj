@@ -11,7 +11,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions</PackageId>
     <ProductName>SseAssertions</ProductName>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
@@ -30,11 +30,11 @@
          Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0. -->
     <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
 
-    <!-- ApiCompat baseline. v0.6.0 adds the SseFailureMessage.IdNotMatched factory backing the
-         new HasSseEvent(...).WithId(...) narrower in the adapter. Purely additive; the prior
-         surface is preserved. CompatibilitySuppressions.xml records the accepted additive
-         difference against the 0.5.1 baseline. -->
-    <PackageValidationBaselineVersion>0.5.1</PackageValidationBaselineVersion>
+    <!-- ApiCompat baseline. v0.7.0 adds the SseEventMatcher matching core, shared by the string,
+         Stream, and HttpResponseMessage HasSseEvent chains. Purely additive to the core surface;
+         CompatibilitySuppressions.xml records the accepted additive difference against the 0.6.0
+         baseline. -->
+    <PackageValidationBaselineVersion>0.6.0</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>

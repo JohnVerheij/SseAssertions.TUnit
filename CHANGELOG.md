@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-16: unify HasSseEvent into one chain across all three receivers
+
+Minor release. The frame narrowers that the `string` receiver already had (`WithData`, `WithDataParsedAs<T>`, `WithId`, `WithRetryMillis`) now reach the `Stream` and `HttpResponseMessage` receivers, which is the realistic shape for testing a live SSE endpoint: subscribe to an open response, drive activity, and assert per-frame payload under a cancellation-bounded partial read. Achieving this with one coherent `HasSseEvent(eventName)` surface across all three receivers means the flat `HasSseEvent(eventName, minCount, ...)` methods are replaced by the chainable form, which is a breaking change.
+
+### BREAKING
+
+- **The flat `HasSseEvent(eventName, minCount, ...)` methods on `Stream` and `HttpResponseMessage` are replaced by a chainable `HasSseEvent(eventName)`** matching the `string` receiver. The minimum-count argument moves to the `.AtLeast(n)` terminator, and the narrowers and other terminators (`AtMost`, `Exactly`) are now available on the streaming receivers.
+  - Migration: `HasSseEvent("x", minCount: 2)` becomes `HasSseEvent("x").AtLeast(2)`; `HasSseEvent("x")` (default minimum of 1) is unchanged. The `strictContentType` and `cancellationToken` arguments stay on the entry method (`HasSseEvent("x", strictContentType: false, cancellationToken: ct)`).
+- **A null `Stream` / `HttpResponseMessage` receiver now fails the assertion** ("the receiver was null") instead of throwing `ArgumentNullException`, matching the long-standing behavior of the `string` receiver. A null `eventName` still throws `ArgumentNullException`, and a negative count still throws `ArgumentOutOfRangeException` (now from the terminator).
+
+### Added
+
+- **Frame narrowers on the `Stream` and `HttpResponseMessage` receivers.** `WithData`, `WithDataParsedAs<T>`, `WithId`, and `WithRetryMillis` constrain which frames count within the cancellation-bounded read, producing the same per-narrower diagnostics as the `string` chain. `WithDataParsedAs<T>` takes a caller-supplied (source-generated) parser so the assertion stays AOT-compatible; a throwing parser fails naming the deserializer exception and the offending data. When the read is cancellation-truncated and the expectation is unmet, the cancellation-cut diagnostic still takes precedence over a count or narrower miss.
+- **`SseEventMatcher`** in the framework-agnostic `SseAssertions` core: the shared event-name-plus-narrowers matching engine the three chains delegate to, so their diagnostics stay identical. Returns a failure-message string (or null on a pass) and carries no test-framework dependency.
+
 ## [0.6.0] - 2026-06-14: complete the HasSseEvent narrowing chain
 
 Minor release. Adds three narrowers to the `HasSseEvent(eventName)` chain on the `string` receiver: `WithId`, `WithRetryMillis`, and `WithDataParsedAs<T>`. The parser already recorded each frame's `id:` and `retry:` directives on `SseEvent`, and the README and `SseFrameParser` documentation already described these narrowers, but the chain methods did not exist. This release ships them. Purely additive; the `0.5.1` ApiCompat baseline is preserved.

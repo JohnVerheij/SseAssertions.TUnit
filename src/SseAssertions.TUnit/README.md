@@ -15,9 +15,9 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 
 | Entry point | Receiver | Shape |
 |---|---|---|
-| `HasSseEvent(eventName)` | `string` | Chain with `WithData(predicate)`, `WithDataParsedAs<T>(parse, predicate)`, `WithId(id)`, `WithRetryMillis(predicate)`, `AtLeast(n)`, `AtMost(n)`, `Exactly(n)` (narrowers `WithDataParsedAs<T>` / `WithId` / `WithRetryMillis` v0.6.0+) |
-| `HasSseEvent(eventName, minCount, cancellationToken)` | `Stream` | Flat (`Task<AssertionResult>`); cancellation-bounded partial-buffer reads |
-| `HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | `HttpResponseMessage` | Flat; default-on `Content-Type: text/event-stream` validation |
+| `HasSseEvent(eventName)` | `string` | Chain with `WithData(predicate)`, `WithDataParsedAs<T>(parse, predicate)`, `WithId(id)`, `WithRetryMillis(predicate)`, `AtLeast(n)`, `AtMost(n)`, `Exactly(n)` |
+| `HasSseEvent(eventName, cancellationToken)` | `Stream` | Same chain; cancellation-bounded partial-buffer reads (v0.7.0+) |
+| `HasSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Same chain; default-on `Content-Type: text/event-stream` validation (v0.7.0+) |
 | `IsServerSentEventsStream()` | `string` | Lightweight discriminator. |
 | `HasSseContentType(strict)` | `HttpResponseMessage` | Header-only discriminator (no body read). `strict: false` (default) matches `text/event-stream` with any parameters; `strict: true` requires the bare media type with no parameters. |
 | `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabeled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
@@ -60,7 +60,7 @@ public async Task NotificationEndpoint_PublishesAtLeastThreeTicks(CancellationTo
 {
     using var response = await _client.GetAsync("/notifications/ticks?take=3", ct);
 
-    await Assert.That(response).HasSseEvent("tick", minCount: 3, cancellationToken: ct);
+    await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(3);
 }
 ```
 
