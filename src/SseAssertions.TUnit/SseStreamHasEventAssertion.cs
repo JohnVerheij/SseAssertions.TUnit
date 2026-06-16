@@ -23,7 +23,9 @@ namespace SseAssertions.TUnit;
 /// (UTF-8, per the WHATWG SSE default), bounded by the supplied <see cref="CancellationToken"/>;
 /// matching is delegated to the shared <see cref="SseEventMatcher"/> so the diagnostics match the
 /// <see cref="string"/> chain. When the token cuts the read short and the expectation is unmet, the
-/// cancellation-truncated diagnostic takes precedence over the count/narrower failure.
+/// cancellation-truncated diagnostic takes precedence over the count/narrower failure. The read
+/// consumes the full token window and does not stop early once the expectation is satisfied, so the
+/// token should be set to the intended time budget.
 /// </remarks>
 [AssertionExtension("HasSseEvent")]
 public sealed class SseStreamHasEventAssertion : Assertion<Stream>

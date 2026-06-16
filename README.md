@@ -417,6 +417,12 @@ public async Task TickEndpoint_EmitsAtLeastTwoTicksInTwoSeconds(CancellationToke
 }
 ```
 
+The streaming read consumes the full token window: it does not stop early once
+the expectation is already satisfied, so set the token to your intended time
+budget (the `[CancelAfter(2_000)]` above bounds the read to two seconds).
+`AtMost` and `Exactly` necessarily read to the window to confirm no further
+matching frames arrive; a satisfied `AtLeast` waits for it too.
+
 Pattern (a) is the recommended approach for deterministic tests; pattern (b)
 suits timing-sensitive scenarios where the endpoint cannot be modified. True
 streaming async-enumerable mode is a candidate for a future release.

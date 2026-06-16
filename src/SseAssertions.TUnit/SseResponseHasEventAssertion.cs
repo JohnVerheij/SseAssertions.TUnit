@@ -24,7 +24,9 @@ namespace SseAssertions.TUnit;
 /// <see cref="CancellationToken"/>; matching is delegated to the shared <see cref="SseEventMatcher"/>.
 /// When <c>strictContentType</c> is set (the default) a non-<c>text/event-stream</c> response fails
 /// with the unexpected-content-type diagnostic before the body is read. When the token cuts the read
-/// short and the expectation is unmet, the cancellation-truncated diagnostic takes precedence.
+/// short and the expectation is unmet, the cancellation-truncated diagnostic takes precedence. The
+/// read consumes the full token window and does not stop early once the expectation is satisfied, so
+/// the token should be set to the intended time budget.
 /// </remarks>
 [AssertionExtension("HasSseEvent")]
 public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage>
