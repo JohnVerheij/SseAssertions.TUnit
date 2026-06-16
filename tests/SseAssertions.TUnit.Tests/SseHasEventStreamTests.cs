@@ -8,9 +8,9 @@ using TUnit.Assertions.Exceptions;
 namespace SseAssertions.TUnit.Tests;
 
 /// <summary>
-/// End-to-end tests for the flat <c>HasSseEvent(eventName, minCount, cancellationToken)</c>
-/// entry point on the <see cref="Stream"/> receiver. Covers the happy-path body read, the
-/// minimum-count fail path, and cancellation-bounded partial-buffer semantics.
+/// End-to-end tests for the <c>HasSseEvent(eventName, cancellationToken)</c> chain entry point on
+/// the <see cref="Stream"/> receiver. Covers the happy-path body read, the count terminator's fail
+/// path, and cancellation-bounded partial-buffer semantics.
 /// </summary>
 [Category("Smoke")]
 [Timeout(5_000)]
@@ -24,7 +24,7 @@ internal sealed class SseHasEventStreamTests
         ct.ThrowIfCancellationRequested();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(ThreeTicks));
 
-        await Assert.That(stream).HasSseEvent("tick", minCount: 2, cancellationToken: ct);
+        await Assert.That(stream).HasSseEvent("tick", cancellationToken: ct).AtLeast(2);
     }
 
     [Test]
@@ -35,7 +35,7 @@ internal sealed class SseHasEventStreamTests
 
         var ex = await Assert.That(async () =>
         {
-            await Assert.That(stream).HasSseEvent("tick", minCount: 5, cancellationToken: ct);
+            await Assert.That(stream).HasSseEvent("tick", cancellationToken: ct).AtLeast(5);
         }).Throws<AssertionException>();
 
         await Assert.That(ex!.Message).Contains("at least 5");
@@ -53,7 +53,7 @@ internal sealed class SseHasEventStreamTests
         // to that point. The first event ("tick"/1) is fully emitted before cancellation.
         cts.CancelAfter(System.TimeSpan.FromMilliseconds(50));
 
-        await Assert.That(stream).HasSseEvent("tick", minCount: 1, cancellationToken: cts.Token);
+        await Assert.That(stream).HasSseEvent("tick", cancellationToken: cts.Token).AtLeast(1);
     }
 
     [Test]
@@ -66,7 +66,7 @@ internal sealed class SseHasEventStreamTests
 
         var ex = await Assert.That(async () =>
         {
-            await Assert.That(stream).HasSseEvent("tick", minCount: 100, cancellationToken: cts.Token);
+            await Assert.That(stream).HasSseEvent("tick", cancellationToken: cts.Token).AtLeast(100);
         }).Throws<AssertionException>();
 
         await Assert.That(ex!.Message).Contains("cancelled");
@@ -74,13 +74,13 @@ internal sealed class SseHasEventStreamTests
     }
 
     [Test]
-    public async Task HasSseEvent_NullStream_ThrowsArgumentNullException(CancellationToken ct)
+    public async Task HasSseEvent_NullStream_FailsWithReceiverWasNull(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         Stream nullStream = null!;
-        var ex = await Assert.That(async () => await nullStream.HasSseEvent("tick"))
-            .Throws<ArgumentNullException>();
-        await Assert.That(ex).IsNotNull();
+        var ex = await Assert.That(async () => await Assert.That(nullStream).HasSseEvent("tick"))
+            .Throws<AssertionException>();
+        await Assert.That(ex!.Message).Contains("receiver was null");
     }
 
     [Test]
@@ -89,17 +89,17 @@ internal sealed class SseHasEventStreamTests
         ct.ThrowIfCancellationRequested();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(ThreeTicks));
         string nullName = null!;
-        var ex = await Assert.That(async () => await stream.HasSseEvent(nullName))
+        var ex = await Assert.That(async () => await Assert.That(stream).HasSseEvent(nullName))
             .Throws<ArgumentNullException>();
         await Assert.That(ex).IsNotNull();
     }
 
     [Test]
-    public async Task HasSseEvent_NegativeMinCount_ThrowsArgumentOutOfRange(CancellationToken ct)
+    public async Task HasSseEvent_NegativeAtLeast_ThrowsArgumentOutOfRange(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(ThreeTicks));
-        var ex = await Assert.That(async () => await stream.HasSseEvent("tick", minCount: -1))
+        var ex = await Assert.That(async () => await Assert.That(stream).HasSseEvent("tick").AtLeast(-1))
             .Throws<ArgumentOutOfRangeException>();
         await Assert.That(ex).IsNotNull();
     }

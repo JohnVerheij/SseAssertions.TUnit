@@ -15,12 +15,12 @@ namespace SseAssertions.TUnit;
 
 /// <summary>
 /// Fluent TUnit entry points for asserting on Server-Sent Events streams produced by
-/// <see cref="Stream"/> and <see cref="HttpResponseMessage"/> receivers. These flat-form methods
-/// complement the <c>HasSseEvent</c> chain on the <see cref="string"/> receiver:
-/// async receivers require the body read to happen inside the assertion call site, which is
-/// awkward to compose with a synchronous chain, so the flat-form encodes the most common shape
-/// (event-name + minimum count + optional content-type validation + cancellation handling) in a
-/// single call.
+/// <see cref="Stream"/> and <see cref="HttpResponseMessage"/> receivers: first-event,
+/// in-order, retry-directive, content-type, and clean-cancellation checks. The frame-narrowing
+/// <c>HasSseEvent</c> chain on these same receivers lives in
+/// <see cref="SseStreamHasEventAssertion"/> and <see cref="SseResponseHasEventAssertion"/>; the
+/// shared read and matching helpers (<see cref="SseStreamReader"/>, <see cref="SseEventMatcher"/>)
+/// keep the diagnostics identical across all three receivers.
 /// </summary>
 /// <remarks>
 /// <para>Cancellation semantics: if the supplied <see cref="CancellationToken"/> fires during
@@ -82,83 +82,6 @@ public static class SseStreamAndHttpAssertions
                 contentType.ToString()));
     }
 
-    /// <summary>Asserts the supplied <see cref="Stream"/> contains at least
-    /// <paramref name="minCount"/> SSE frames of type <paramref name="eventName"/>.</summary>
-    /// <param name="stream">The SSE stream. Read to its end (or until <paramref name="cancellationToken"/>
-    /// fires).</param>
-    /// <param name="eventName">The SSE event-type name to look for.</param>
-    /// <param name="minCount">The minimum match count. Defaults to <c>1</c>.</param>
-    /// <param name="cancellationToken">Flows to the stream read.</param>
-    /// <returns>An assertion that passes when the stream contains at least
-    /// <paramref name="minCount"/> matching frames.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
-    /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minCount"/> is
-    /// negative.</exception>
-    [GenerateAssertion]
-    public static async Task<AssertionResult> HasSseEvent(
-        this Stream stream, string eventName, int minCount = 1, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(eventName);
-        ArgumentOutOfRangeException.ThrowIfNegative(minCount);
-
-        var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
-            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return EvaluateAgainstParsedEvents(body, bytesReceived, cancelled, eventName, minCount);
-    }
-
-    /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains at least
-    /// <paramref name="minCount"/> SSE frames of type <paramref name="eventName"/>.</summary>
-    /// <param name="response">The HTTP response carrying the SSE body.</param>
-    /// <param name="eventName">The SSE event-type name to look for.</param>
-    /// <param name="minCount">The minimum match count. Defaults to <c>1</c>.</param>
-    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
-    /// fails if <see cref="HttpContent.Headers"/>'s <c>Content-Type</c> media type is not
-    /// <c>text/event-stream</c>. Set to <see langword="false"/> for test mocks that serve SSE
-    /// without the canonical header.</param>
-    /// <param name="cancellationToken">Flows to the response-body read.</param>
-    /// <returns>An assertion that passes when the response is SSE-typed (subject to
-    /// <paramref name="strictContentType"/>) and contains at least <paramref name="minCount"/>
-    /// matching frames.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="response"/> or
-    /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minCount"/> is
-    /// negative.</exception>
-    [GenerateAssertion]
-    public static async Task<AssertionResult> HasSseEvent(
-        this HttpResponseMessage response,
-        string eventName,
-        int minCount = 1,
-        bool strictContentType = true,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(response);
-        ArgumentNullException.ThrowIfNull(eventName);
-        ArgumentOutOfRangeException.ThrowIfNegative(minCount);
-
-        if (strictContentType)
-        {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
-        }
-
-        if (response.Content is null)
-        {
-            return AssertionResult.Failed(SseFailureMessage.EventCountMismatch(
-                eventName, minCount, 0, SseCountComparison.AtLeast));
-        }
-
-        var encoding = ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
-        return EvaluateAgainstParsedEvents(body, bytesReceived, cancelled, eventName, minCount);
-    }
-
     /// <summary>Asserts the first SSE frame in <paramref name="response"/>'s body has
     /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabelled frames match
     /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. Body is read
@@ -194,18 +117,8 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return AssertionResult.Failed(string.Concat(
-                "the first event to be \"",
-                eventName,
-                "\"\n  but the stream contained no events"));
-        }
-
-        var encoding = ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadResponseBodyAsync(
+            response, cancellationToken).ConfigureAwait(false);
         return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
     }
 
@@ -228,7 +141,7 @@ public static class SseStreamAndHttpAssertions
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(eventName);
 
-        var (body, bytesReceived, cancelled) = await ReadStreamWithCancellationCaptureAsync(
+        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadAsync(
             stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
         return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
     }
@@ -257,7 +170,7 @@ public static class SseStreamAndHttpAssertions
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(eventNames);
 
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+        var (body, _, _) = await SseStreamReader.ReadAsync(
             stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
         var events = SseFrameParser.Parse(body);
         return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
@@ -299,15 +212,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseEventsInOrderAssertion.Evaluate(System.Array.Empty<SseEvent>(), eventNames, strictOrdering);
-        }
-
-        var encoding = ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         var events = SseFrameParser.Parse(body);
         return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
     }
@@ -327,7 +232,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+        var (body, _, _) = await SseStreamReader.ReadAsync(
             stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
         var events = SseFrameParser.Parse(body);
         return SseFormatAssertions.EvaluateRetryDirective(events, millis);
@@ -365,15 +270,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseFormatAssertions.EvaluateRetryDirective(System.Array.Empty<SseEvent>(), millis);
-        }
-
-        var encoding = ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         var events = SseFrameParser.Parse(body);
         return SseFormatAssertions.EvaluateRetryDirective(events, millis);
     }
@@ -390,7 +287,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+        var (body, _, _) = await SseStreamReader.ReadAsync(
             stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
     }
@@ -422,15 +319,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseFormatAssertions.EvaluateRetryDirectiveFirst(string.Empty);
-        }
-
-        var encoding = ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
     }
 
@@ -448,7 +337,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
+        var (body, _, _) = await SseStreamReader.ReadAsync(
             stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
     }
@@ -484,15 +373,7 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (response.Content is null)
-        {
-            return SseFormatAssertions.EvaluateRetryDirectiveFirst(string.Empty, millis);
-        }
-
-        var encoding = ResolveEncoding(response);
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var (body, _, _) = await ReadStreamWithCancellationCaptureAsync(
-            stream, encoding, cancellationToken).ConfigureAwait(false);
+        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
     }
 
@@ -549,16 +430,12 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (content is null)
-        {
-            return AssertionResult.Passed;
-        }
-
         // Acquire the body stream inside the drain's cancellation classification: a token that
         // fires during ReadAsStreamAsync must be the same clean-teardown signal as one that fires
-        // during the read loop, not an exception that escapes the assertion.
+        // during the read loop, not an exception that escapes the assertion. Content is never null
+        // (the getter returns an empty content), so an empty body simply drains to a clean pass.
         return await DrainExpectingCleanCancellationAsync(
-            ct => new ValueTask<Stream>(content.ReadAsStreamAsync(ct)),
+            ct => new ValueTask<Stream>(content!.ReadAsStreamAsync(ct)),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -632,89 +509,4 @@ public static class SseStreamAndHttpAssertions
         return SseFormatAssertions.EvaluateFirstEvent(events, expectedEventName);
     }
 
-    private static AssertionResult EvaluateAgainstParsedEvents(
-        string body, int bytesReceived, bool cancelled, string eventName, int minCount)
-    {
-        var events = SseFrameParser.Parse(body);
-        var matchCount = CountMatching(events, eventName);
-
-        if (matchCount >= minCount)
-        {
-            return AssertionResult.Passed;
-        }
-
-        if (cancelled)
-        {
-            return AssertionResult.Failed(SseFailureMessage.CancellationCutRead(bytesReceived, events.Count, body));
-        }
-
-        return AssertionResult.Failed(SseFailureMessage.EventCountMismatch(
-            eventName, minCount, matchCount, SseCountComparison.AtLeast));
-    }
-
-    private static int CountMatching(System.Collections.Generic.IReadOnlyList<SseEvent> events, string eventName)
-    {
-        // Per-item filter against a single fixed string. Hand-written count avoids a
-        // LINQ allocation that S3267 would otherwise prefer; the loop shape is unavoidable.
-        var n = 0;
-        for (var i = 0; i < events.Count; i++)
-        {
-            if (string.Equals(events[i].EventName, eventName, StringComparison.Ordinal))
-            {
-                n++;
-            }
-        }
-
-        return n;
-    }
-
-    private static Encoding ResolveEncoding(HttpResponseMessage response)
-    {
-        var charset = response.Content?.Headers?.ContentType?.CharSet;
-        if (string.IsNullOrEmpty(charset))
-        {
-            return Encoding.UTF8;
-        }
-
-        try
-        {
-            return Encoding.GetEncoding(charset);
-        }
-        catch (ArgumentException)
-        {
-            // Unknown / invalid charset — fall back to UTF-8 per WHATWG SSE default.
-            return Encoding.UTF8;
-        }
-    }
-
-    private static async Task<(string Body, int BytesReceived, bool Cancelled)> ReadStreamWithCancellationCaptureAsync(
-        Stream stream, Encoding encoding, CancellationToken cancellationToken)
-    {
-        const int InitialBufferSize = 4096;
-        var buffer = ArrayPool<byte>.Shared.Rent(InitialBufferSize);
-        using var ms = new MemoryStream();
-        var cancelled = false;
-        try
-        {
-            int read;
-            try
-            {
-                while ((read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
-                {
-                    await ms.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                cancelled = true;
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-
-        var bytes = ms.ToArray();
-        return (encoding.GetString(bytes), bytes.Length, cancelled);
-    }
 }

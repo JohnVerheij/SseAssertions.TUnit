@@ -48,13 +48,15 @@ mental model doesn't match the wire format.
 
 - A WHATWG / W3C-compliant frame parser (`SseFrameParser.Parse(string)`) that
   produces `IReadOnlyList<SseEvent>` records.
-- A TUnit `HasSseEvent("tick")` chain on the `string` receiver with the
-  `WithData(predicate)` / `WithDataParsedAs<T>(parse, predicate)` / `WithId(id)`
-  / `WithRetryMillis(predicate)` narrowers and `AtLeast(n)` / `AtMost(n)` /
+- A single TUnit `HasSseEvent("tick")` chain on the `string`, `Stream`, and
+  `HttpResponseMessage` receivers with the `WithData(predicate)` /
+  `WithDataParsedAs<T>(parse, predicate)` / `WithId(id)` /
+  `WithRetryMillis(predicate)` narrowers and `AtLeast(n)` / `AtMost(n)` /
   `Exactly(n)` terminators.
-- Flat `HasSseEvent(eventName, minCount, ...)` entry points on `Stream` and
-  `HttpResponseMessage`, with cancellation-bounded partial-buffer reads and
-  default-on `Content-Type: text/event-stream` validation.
+- On the `Stream` and `HttpResponseMessage` receivers the same chain adds
+  cancellation-bounded partial-buffer reads and default-on
+  `Content-Type: text/event-stream` validation, so per-frame payload can be
+  asserted against a live, open SSE response.
 - A public `SseFailureMessage` extension point so consumer-authored typed SSE
   assertions produce failure messages in the same shape as the shipped surface.
 
@@ -79,7 +81,7 @@ dotnet add package SseAssertions
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`SseAssertions`](https://www.nuget.org/packages/SseAssertions/) | Framework-agnostic core: `SseEvent` record, `SseFrameParser`, `SseFailureMessage`, `SseCountComparison`, `SseFormat` | BCL only |
-| [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) | TUnit adapter: `HasSseEvent` chain on `string`, flat `HasSseEvent` on `Stream` and `HttpResponseMessage`, plus `IsServerSentEventsStream()` discriminator | `SseAssertions` + `TUnit.Assertions` + `TUnit.Core` |
+| [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) | TUnit adapter: `HasSseEvent` chain on `string`, `Stream`, and `HttpResponseMessage`, plus `IsServerSentEventsStream()` discriminator | `SseAssertions` + `TUnit.Assertions` + `TUnit.Core` |
 
 Install `SseAssertions.TUnit` for TUnit test projects; `SseAssertions` comes
 transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are not
@@ -127,21 +129,20 @@ public async Task NotificationEndpoint_PublishesTickEveryTwoSeconds(Cancellation
 {
     using var response = await _client.GetAsync("/notifications/ticks?take=3", ct);
 
-    await Assert.That(response).HasSseEvent("tick", minCount: 3, cancellationToken: ct);
+    await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(3);
 }
 ```
 
-**Assert with a data predicate at the consumer's call site:**
+**Assert per-frame payload directly against the open response (no full materialization):**
 
 ```csharp
 [Test]
 public async Task OrderUpdates_StreamHasShippedEventForExpectedOrder(CancellationToken ct)
 {
     using var response = await _client.GetAsync("/orders/42/updates?take=5", ct);
-    var body = await response.Content.ReadAsStringAsync(ct);
 
-    await Assert.That(body)
-        .HasSseEvent("order-update")
+    await Assert.That(response)
+        .HasSseEvent("order-update", cancellationToken: ct)
         .WithData(json => json.Contains("\"orderId\":42", StringComparison.Ordinal)
             && json.Contains("\"status\":\"shipped\"", StringComparison.Ordinal))
         .AtLeast(1);
@@ -201,8 +202,8 @@ rule described here.
 |---|---|---|---|
 | `string` | `.HasSseEvent(eventName)` | `SseHasEventAssertion` (chain) | `WithData(Func<string, bool>)`, `WithDataParsedAs<T>(Func<string, T>, Func<T, bool>)`, `WithId(string)`, `WithRetryMillis(Func<int?, bool>)`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
 | `string` | `.IsServerSentEventsStream()` | flat - `AssertionResult` | - |
-| `Stream` | `.HasSseEvent(eventName, minCount, cancellationToken)` | flat - `Task<AssertionResult>` | - |
-| `HttpResponseMessage` | `.HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
+| `Stream` | `.HasSseEvent(eventName, cancellationToken)` | `SseStreamHasEventAssertion` (chain) | `WithData`, `WithDataParsedAs<T>`, `WithId`, `WithRetryMillis`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
+| `HttpResponseMessage` | `.HasSseEvent(eventName, strictContentType, cancellationToken)` | `SseResponseHasEventAssertion` (chain) | `WithData`, `WithDataParsedAs<T>`, `WithId`, `WithRetryMillis`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
 | `HttpResponseMessage` | `.HasSseContentType(strict)` | flat - `AssertionResult` | - |
 | `string` | `.HasFirstSseEvent(eventName)` | flat - `AssertionResult` | - |
 | `Stream` | `.HasFirstSseEvent(eventName, cancellationToken)` | flat - `Task<AssertionResult>` | - |
@@ -222,12 +223,11 @@ rule described here.
 | `Stream` | `.EndsCleanlyOnCancellation(cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.EndsCleanlyOnCancellation(strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 
-The chain pattern is available on the `string` receiver, where the body is
-already in memory. On the async receivers (`Stream`, `HttpResponseMessage`) the
-body read happens inside the assertion call and the entry point is flat; if you
-need the chain over an HTTP response, read the body into a string in the test
-and assert on the string. The async-receiver chain is a candidate for a future
-release (see [Roadmap](#roadmap)).
+The same `HasSseEvent(eventName)` chain is available on all three receivers. On
+the `string` receiver the body is already in memory; on the `Stream` and
+`HttpResponseMessage` receivers the body read happens inside the assertion under
+the supplied cancellation token, and the narrowers and count terminators apply to
+the frames seen within that read.
 
 ## Failure diagnostics
 
@@ -298,7 +298,7 @@ public async Task NotificationEndpoint_PublishesAtLeastThreeTicks(CancellationTo
 {
     using var response = await _client.GetAsync("/notifications/ticks?take=3", ct);
 
-    await Assert.That(response).HasSseEvent("tick", minCount: 3, cancellationToken: ct);
+    await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(3);
 }
 ```
 
@@ -413,9 +413,15 @@ public async Task TickEndpoint_EmitsAtLeastTwoTicksInTwoSeconds(CancellationToke
 {
     using var response = await _client.GetAsync("/notifications/ticks", ct);
 
-    await Assert.That(response).HasSseEvent("tick", minCount: 2, cancellationToken: ct);
+    await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(2);
 }
 ```
+
+The streaming read consumes the full token window: it does not stop early once
+the expectation is already satisfied, so set the token to your intended time
+budget (the `[CancelAfter(2_000)]` above bounds the read to two seconds).
+`AtMost` and `Exactly` necessarily read to the window to confirm no further
+matching frames arrive; a satisfied `AtLeast` waits for it too.
 
 Pattern (a) is the recommended approach for deterministic tests; pattern (b)
 suits timing-sensitive scenarios where the endpoint cannot be modified. True
@@ -425,11 +431,6 @@ streaming async-enumerable mode is a candidate for a future release.
 
 Read this before opening a feature request.
 
-- **Async-receiver chains.** `WithData`, `WithDataParsedAs<T>`, `AtMost`,
-  `Exactly`, `WithRetryMillis` attach to the chain on the `string` receiver
-  only. The `Stream` and `HttpResponseMessage` receivers use a flat
-  `HasSseEvent(eventName, minCount, ...)` entry point because composing an
-  async body read with a synchronous fluent chain is awkward in C#.
 - **Streaming async-enumerable mode.** The assertion reads the entire response body
   before parsing; this works against bounded-output endpoints (see [Pattern
   5(a)](#pattern-5-testing-infinite-stream-endpoints-with-cancellation-bounded-reads))
@@ -449,8 +450,8 @@ Read this before opening a feature request.
 
 ## Design notes
 
-- **Chain on the `string` receiver.** SSE assertions compose, so a chain (`HasSseEvent(name).WithData(...).AtLeast(n)`) stays linear where flat overloads would explode combinatorially. Same shape as `LogAssertions`' `HasLogged().WithException<T>().AtLeast(n)`.
-- **Flat methods on the async receivers.** `Stream` / `HttpResponseMessage` must read the body inside the assertion; a synchronous chain over an async read would force every chain method to return `Task`, which reads awkwardly. The flat form encodes the common case (event name + min count + optional content-type check + cancellation) in one call; the chain stays available on `string`.
+- **One `HasSseEvent` chain across all three receivers.** SSE assertions compose, so a chain (`HasSseEvent(name).WithData(...).AtLeast(n)`) stays linear where flat overloads would explode combinatorially. Same shape as `LogAssertions`' `HasLogged().WithException<T>().AtLeast(n)`. The `Stream` and `HttpResponseMessage` receivers read the body inside the assertion's `CheckAsync`, so the narrowers configure the matcher synchronously and the single async read happens once at evaluation time. The `string`, `Stream`, and `HttpResponseMessage` chains all delegate to the shared `SseEventMatcher`, so their diagnostics are identical.
+- **`minCount` is `.AtLeast(n)`.** The streaming entry methods carry only what must precede the read (`strictContentType`, `cancellationToken`); the count is a terminator like every other receiver, which is why the pre-0.7.0 `HasSseEvent(eventName, minCount, ...)` flat form was replaced.
 - **Content-Type `text/event-stream` validation is on by default.** It catches the foot-gun where a test hits the wrong endpoint and gets HTML / JSON / a 500: without it the parser silently yields zero events and the failure is confusing. Opt out with `strictContentType: false`. Comparison is case-insensitive (RFC 9110).
 - **Caller-supplied deserialization, not `JsonTypeInfo<T>`.** `WithData` takes a `Func<string, bool>` and `WithDataParsedAs<T>` takes a `Func<string, T>` parse delegate, so any deserialization strategy stays at your call site. Neither forces a `System.Text.Json` dependency or an adapter; per the family's cross-package rule the package takes no `JsonAssertions` reference. Supply a source-generated `JsonTypeInfo<T>` inside the delegate to keep parsing AOT-compatible.
 - **Cancellation-bounded reads.** The `Stream` / `HttpResponseMessage` overloads use an `ArrayPool<byte>`-backed read loop rather than `ReadAsStringAsync` (which discards its partial buffer on cancellation); the loop parses whatever bytes arrived as best-effort SSE. Encoding comes from the `Content-Type` charset, UTF-8 fallback.
@@ -471,9 +472,6 @@ The 1.0 milestone signals API stability.
 
 ## Roadmap
 
-- Async-receiver chains: bring `WithData`, `WithDataParsedAs<T>`, `AtMost`,
-  `Exactly`, `WithRetryMillis` to the `Stream` and `HttpResponseMessage` entry
-  points so the chain shape matches across all three receivers.
 - Streaming async-enumerable read of `HttpResponseMessage` for indefinite-stream
   endpoints; yields `SseEvent` on demand.
 

@@ -15,9 +15,9 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 
 | Entry point | Receiver | Shape |
 |---|---|---|
-| `HasSseEvent(eventName)` | `string` | Chain with `WithData(predicate)`, `WithDataParsedAs<T>(parse, predicate)`, `WithId(id)`, `WithRetryMillis(predicate)`, `AtLeast(n)`, `AtMost(n)`, `Exactly(n)` (narrowers `WithDataParsedAs<T>` / `WithId` / `WithRetryMillis` v0.6.0+) |
-| `HasSseEvent(eventName, minCount, cancellationToken)` | `Stream` | Flat (`Task<AssertionResult>`); cancellation-bounded partial-buffer reads |
-| `HasSseEvent(eventName, minCount, strictContentType, cancellationToken)` | `HttpResponseMessage` | Flat; default-on `Content-Type: text/event-stream` validation |
+| `HasSseEvent(eventName)` | `string` | Chain with `WithData(predicate)`, `WithDataParsedAs<T>(parse, predicate)`, `WithId(id)`, `WithRetryMillis(predicate)`, `AtLeast(n)`, `AtMost(n)`, `Exactly(n)` |
+| `HasSseEvent(eventName, cancellationToken)` | `Stream` | Same chain; cancellation-bounded partial-buffer reads (v0.7.0+) |
+| `HasSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Same chain; default-on `Content-Type: text/event-stream` validation (v0.7.0+) |
 | `IsServerSentEventsStream()` | `string` | Lightweight discriminator. |
 | `HasSseContentType(strict)` | `HttpResponseMessage` | Header-only discriminator (no body read). `strict: false` (default) matches `text/event-stream` with any parameters; `strict: true` requires the bare media type with no parameters. |
 | `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabeled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
@@ -32,7 +32,7 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 | `HasSseRetryDirectiveFirst()` | `string` / `Stream` / `HttpResponseMessage` | Asserts a `retry:` directive precedes the first non-empty `data:` field, checked at the wire-field level. An empty `data:` line carries no payload and does not count, so the standard ASP.NET Core control frame (`event: retry` + empty `data:` + `retry: <ms>`) passes. `Stream` / `HttpResponseMessage` forms take `cancellationToken`; `HttpResponseMessage` takes `strictContentType` (default-on). Matches the `retry:` directive field, not an `event: retry` named event: a stream emitting `event: retry` + `data:` with no `retry:` field fails. (v0.3.0+; empty-`data:` handling v0.4.1+) |
 | `EndsCleanlyOnCancellation(cancellationToken)` | `Stream` / `HttpResponseMessage` | Asserts a canceled read tears down via cooperative cancellation rather than a transport exception (`IOException` / `HttpRequestException`). `HttpResponseMessage` form takes `strictContentType` (default-on) and reads the body via `ReadAsStreamAsync`. (`Stream` v0.3.0+; `HttpResponseMessage` v0.4.0+) |
 
-The chain on the `string` receiver narrows by data payload (`WithData(Func<string, bool>)`, or `WithDataParsedAs<T>(Func<string, T> parse, Func<T, bool> predicate)` for a caller-supplied reflection-free deserializer), by the per-event `id:` directive (`WithId(string)`), or by the per-event `retry:` directive (`WithRetryMillis(Func<int?, bool>)`), then terminates with `AtLeast / AtMost / Exactly` count assertions. The async receivers (`Stream`, `HttpResponseMessage`) use a flat-form entry point because composing an async body read with a synchronous chain is awkward in C#; the async-receiver chain is a candidate for a future release.
+The `HasSseEvent(eventName)` chain narrows by data payload (`WithData(Func<string, bool>)`, or `WithDataParsedAs<T>(Func<string, T> parse, Func<T, bool> predicate)` for a caller-supplied reflection-free deserializer), by the per-event `id:` directive (`WithId(string)`), or by the per-event `retry:` directive (`WithRetryMillis(Func<int?, bool>)`), then terminates with `AtLeast / AtMost / Exactly` count assertions. The same chain is available on all three receivers; on `Stream` and `HttpResponseMessage` the body read happens inside the assertion under the supplied cancellation token.
 
 ## Install
 
@@ -60,7 +60,7 @@ public async Task NotificationEndpoint_PublishesAtLeastThreeTicks(CancellationTo
 {
     using var response = await _client.GetAsync("/notifications/ticks?take=3", ct);
 
-    await Assert.That(response).HasSseEvent("tick", minCount: 3, cancellationToken: ct);
+    await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(3);
 }
 ```
 

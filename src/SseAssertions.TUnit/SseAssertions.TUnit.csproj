@@ -11,10 +11,10 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions.TUnit</PackageId>
     <ProductName>SseAssertions.TUnit</ProductName>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. HasSseEvent(eventName) chain on the string receiver with WithData / AtLeast / AtMost / Exactly terminators; flat HasSseEvent(eventName, minCount, ...) on Stream and HttpResponseMessage with cancellation-bounded partial-buffer reads and default-on Content-Type: text/event-stream validation. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
+    <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. A single HasSseEvent(eventName) chain on the string, Stream, and HttpResponseMessage receivers with frame narrowers (WithData / WithDataParsedAs&lt;T&gt; / WithId / WithRetryMillis) and AtLeast / AtMost / Exactly count terminators; the streaming receivers add cancellation-bounded partial-buffer reads and default-on Content-Type: text/event-stream validation. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
     <PackageTags>tunit;sse;server-sent-events;testing;assertions;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -30,11 +30,13 @@
          Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0. -->
     <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
 
-    <!-- ApiCompat baseline. v0.6.0 adds the WithId / WithRetryMillis / WithDataParsedAs<T>
-         narrowers to the HasSseEvent chain. All additions are additive; the prior surface is
-         preserved unchanged. CompatibilitySuppressions.xml records the accepted additive
-         differences against the 0.5.1 baseline. -->
-    <PackageValidationBaselineVersion>0.5.1</PackageValidationBaselineVersion>
+    <!-- ApiCompat baseline. v0.7.0 unifies the HasSseEvent surface: the flat
+         HasSseEvent(eventName, minCount, ...) methods on Stream and HttpResponseMessage are
+         replaced by a chainable HasSseEvent(eventName) carrying the same frame narrowers and
+         count terminators as the string receiver (minCount becomes .AtLeast(n)). This is a
+         deliberate BREAKING change; CompatibilitySuppressions.xml records the removed flat
+         members and the added chain types against the 0.6.0 baseline. -->
+    <PackageValidationBaselineVersion>0.6.0</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>

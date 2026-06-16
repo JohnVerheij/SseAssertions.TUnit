@@ -1,5 +1,8 @@
 using System;
 using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using SseAssertions;
 using TUnit.Assertions.Attributes;
@@ -8,48 +11,56 @@ using TUnit.Assertions.Core;
 namespace SseAssertions.TUnit;
 
 /// <summary>
-/// Fluent TUnit assertion that walks a Server-Sent Events wire-format string and verifies the
-/// presence (or count) of frames matching a given event-type name. Constructed by the TUnit
-/// source generator from the <c>HasSseEvent(string)</c> extension on <see cref="string"/>; the
-/// narrower methods (<c>WithData</c>, <c>WithDataParsedAs&lt;T&gt;</c>, <c>WithId</c>,
+/// Fluent TUnit assertion that reads a Server-Sent Events <see cref="Stream"/> and verifies the
+/// presence (or count) of frames matching a given event-type name. Constructed by the TUnit source
+/// generator from the <c>HasSseEvent(string, CancellationToken)</c> extension on <see cref="Stream"/>;
+/// the narrower methods (<c>WithData</c>, <c>WithDataParsedAs&lt;T&gt;</c>, <c>WithId</c>,
 /// <c>WithRetryMillis</c>) constrain which frames count and the count terminators (<c>AtLeast</c>,
 /// <c>AtMost</c>, <c>Exactly</c>) close the assertion.
 /// </summary>
 /// <remarks>
-/// The chain runs against the receiver string parsed via <see cref="SseFrameParser.Parse(string)"/>
-/// inside <see cref="CheckAsync"/>; the matching itself is delegated to the shared
-/// <see cref="SseEventMatcher"/> so the <see cref="System.IO.Stream"/> and
-/// <see cref="System.Net.Http.HttpResponseMessage"/> chains produce identically shaped diagnostics.
+/// The stream is drained inside <see cref="CheckAsync"/> via <see cref="SseStreamReader.ReadAsync"/>
+/// (UTF-8, per the WHATWG SSE default), bounded by the supplied <see cref="CancellationToken"/>;
+/// matching is delegated to the shared <see cref="SseEventMatcher"/> so the diagnostics match the
+/// <see cref="string"/> chain. When the token cuts the read short and the expectation is unmet, the
+/// cancellation-truncated diagnostic takes precedence over the count/narrower failure. The read
+/// consumes the full token window and does not stop early once the expectation is satisfied, so the
+/// token should be set to the intended time budget.
 /// </remarks>
 [AssertionExtension("HasSseEvent")]
-public sealed class SseHasEventAssertion : Assertion<string>
+public sealed class SseStreamHasEventAssertion : Assertion<Stream>
 {
     private readonly string _eventName;
     private readonly SseEventMatcher _matcher;
+    private readonly CancellationToken _cancellationToken;
 
     /// <summary>Initialises the assertion. Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="eventName">The SSE event-type name to look for. Matched case-sensitively
     /// against <see cref="SseEvent.EventName"/>.</param>
+    /// <param name="cancellationToken">Bounds the stream read; cancellation parses the partial
+    /// buffer as best-effort SSE.</param>
     /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
     /// <see langword="null"/>.</exception>
-    public SseHasEventAssertion(AssertionContext<string> context, string eventName) : base(context)
+    public SseStreamHasEventAssertion(
+        AssertionContext<Stream> context, string eventName, CancellationToken cancellationToken = default)
+        : base(context)
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _eventName = eventName;
         _matcher = new SseEventMatcher(eventName);
+        _cancellationToken = cancellationToken;
         Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEvent({"\""}{eventName}{"\""})");
     }
 
     /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Data"/> satisfies the
     /// supplied predicate.</summary>
-    /// <param name="predicate">The data predicate. Called with each candidate frame's
-    /// <see cref="SseEvent.Data"/> value; frames for which the predicate returns
+    /// <param name="predicate">The data predicate; frames for which it returns
     /// <see langword="true"/> are counted.</param>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is
     /// <see langword="null"/>.</exception>
-    public SseHasEventAssertion WithData(Func<string, bool> predicate)
+    public SseStreamHasEventAssertion WithData(Func<string, bool> predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
         _matcher.DataPredicate = predicate;
@@ -71,7 +82,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="parse"/> or
     /// <paramref name="predicate"/> is <see langword="null"/>.</exception>
-    public SseHasEventAssertion WithDataParsedAs<T>(Func<string, T> parse, Func<T, bool> predicate)
+    public SseStreamHasEventAssertion WithDataParsedAs<T>(Func<string, T> parse, Func<T, bool> predicate)
     {
         ArgumentNullException.ThrowIfNull(parse);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -86,7 +97,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="id"/> is
     /// <see langword="null"/>.</exception>
-    public SseHasEventAssertion WithId(string id)
+    public SseStreamHasEventAssertion WithId(string id)
     {
         ArgumentNullException.ThrowIfNull(id);
         _matcher.HasIdFilter = true;
@@ -97,14 +108,13 @@ public sealed class SseHasEventAssertion : Assertion<string>
 
     /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.RetryMillis"/> satisfies
     /// the supplied predicate.</summary>
-    /// <param name="predicate">The retry-value predicate. Called with each candidate frame's
-    /// <see cref="SseEvent.RetryMillis"/> (<see langword="null"/> for frames without a
-    /// <c>retry:</c> directive); frames for which it returns <see langword="true"/> are
+    /// <param name="predicate">The retry-value predicate (<see langword="null"/> for frames without
+    /// a <c>retry:</c> directive); frames for which it returns <see langword="true"/> are
     /// counted.</param>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is
     /// <see langword="null"/>.</exception>
-    public SseHasEventAssertion WithRetryMillis(Func<int?, bool> predicate)
+    public SseStreamHasEventAssertion WithRetryMillis(Func<int?, bool> predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
         _matcher.RetryPredicate = predicate;
@@ -117,7 +127,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is
     /// negative.</exception>
-    public SseHasEventAssertion AtLeast(int count)
+    public SseStreamHasEventAssertion AtLeast(int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         _matcher.Comparison = SseCountComparison.AtLeast;
@@ -131,7 +141,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is
     /// negative.</exception>
-    public SseHasEventAssertion AtMost(int count)
+    public SseStreamHasEventAssertion AtMost(int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         _matcher.Comparison = SseCountComparison.AtMost;
@@ -145,7 +155,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     /// <returns>This assertion for chaining.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is
     /// negative.</exception>
-    public SseHasEventAssertion Exactly(int count)
+    public SseStreamHasEventAssertion Exactly(int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         _matcher.Comparison = SseCountComparison.Exactly;
@@ -155,24 +165,24 @@ public sealed class SseHasEventAssertion : Assertion<string>
     }
 
     /// <inheritdoc/>
-    protected override Task<AssertionResult> CheckAsync(EvaluationMetadata<string> metadata)
+    protected override async Task<AssertionResult> CheckAsync(EvaluationMetadata<Stream> metadata)
     {
         if (metadata.Exception is not null)
         {
-            return Task.FromResult(AssertionResult.Failed(
+            return AssertionResult.Failed(
                 $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
-                metadata.Exception));
+                metadata.Exception);
         }
 
-        var body = metadata.Value;
-        if (body is null)
+        var stream = metadata.Value;
+        if (stream is null)
         {
-            return Task.FromResult(AssertionResult.Failed("the receiver was null"));
+            return AssertionResult.Failed("the receiver was null");
         }
 
-        var events = SseFrameParser.Parse(body);
-        var failure = _matcher.Evaluate(events);
-        return Task.FromResult(failure is null ? AssertionResult.Passed : AssertionResult.Failed(failure));
+        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadAsync(
+            stream, Encoding.UTF8, _cancellationToken).ConfigureAwait(false);
+        return SseStreamEvaluation.Evaluate(_matcher, body, bytesReceived, cancelled);
     }
 
     /// <inheritdoc/>
