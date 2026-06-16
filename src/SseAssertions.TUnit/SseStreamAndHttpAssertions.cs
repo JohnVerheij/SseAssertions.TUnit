@@ -430,16 +430,12 @@ public static class SseStreamAndHttpAssertions
             }
         }
 
-        if (content is null)
-        {
-            return AssertionResult.Passed;
-        }
-
         // Acquire the body stream inside the drain's cancellation classification: a token that
         // fires during ReadAsStreamAsync must be the same clean-teardown signal as one that fires
-        // during the read loop, not an exception that escapes the assertion.
+        // during the read loop, not an exception that escapes the assertion. Content is never null
+        // (the getter returns an empty content), so an empty body simply drains to a clean pass.
         return await DrainExpectingCleanCancellationAsync(
-            ct => new ValueTask<Stream>(content.ReadAsStreamAsync(ct)),
+            ct => new ValueTask<Stream>(content!.ReadAsStreamAsync(ct)),
             cancellationToken).ConfigureAwait(false);
     }
 
