@@ -29,7 +29,7 @@ internal sealed class SseEventMatcher
     /// against <see cref="SseEvent.EventName"/>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
     /// <see langword="null"/>.</exception>
-    public SseEventMatcher(string eventName)
+    internal SseEventMatcher(string eventName)
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _eventName = eventName;
@@ -37,29 +37,29 @@ internal sealed class SseEventMatcher
 
     /// <summary>Gets or sets the data predicate; frames whose <see cref="SseEvent.Data"/> fails it
     /// do not count.</summary>
-    public Func<string, bool>? DataPredicate { get; set; }
+    internal Func<string, bool>? DataPredicate { get; set; }
 
     /// <summary>Gets or sets the parsed-data narrower. Returns a tuple of (threw, exception,
     /// matched): when <c>threw</c> is set the assertion fails naming the deserializer exception,
     /// otherwise frames for which <c>matched</c> is <see langword="false"/> do not count.</summary>
-    public Func<string, (bool Threw, Exception? Exception, bool Matched)>? ParsedNarrow { get; set; }
+    internal Func<string, (bool Threw, Exception? Exception, bool Matched)>? ParsedNarrow { get; set; }
 
     /// <summary>Gets or sets whether an <c>id:</c> filter is active.</summary>
-    public bool HasIdFilter { get; set; }
+    internal bool HasIdFilter { get; set; }
 
     /// <summary>Gets or sets the expected <see cref="SseEvent.Id"/> when <see cref="HasIdFilter"/>
     /// is set.</summary>
-    public string? ExpectedId { get; set; }
+    internal string? ExpectedId { get; set; }
 
     /// <summary>Gets or sets the retry predicate; frames whose <see cref="SseEvent.RetryMillis"/>
     /// fails it do not count.</summary>
-    public Func<int?, bool>? RetryPredicate { get; set; }
+    internal Func<int?, bool>? RetryPredicate { get; set; }
 
     /// <summary>Gets or sets the count comparison applied to the match count.</summary>
-    public SseCountComparison Comparison { get; set; } = SseCountComparison.AtLeast;
+    internal SseCountComparison Comparison { get; set; } = SseCountComparison.AtLeast;
 
     /// <summary>Gets or sets the expected match count the comparison is applied against.</summary>
-    public int ExpectedCount { get; set; } = 1;
+    internal int ExpectedCount { get; set; } = 1;
 
     /// <summary>Counts the frames matching the event name and every configured narrower, then
     /// returns <see langword="null"/> on a pass or the most specific failure diagnostic.</summary>
@@ -68,7 +68,7 @@ internal sealed class SseEventMatcher
     /// message.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="events"/> is
     /// <see langword="null"/>.</exception>
-    public string? Evaluate(IReadOnlyList<SseEvent> events)
+    internal string? Evaluate(IReadOnlyList<SseEvent> events)
     {
         ArgumentNullException.ThrowIfNull(events);
 
