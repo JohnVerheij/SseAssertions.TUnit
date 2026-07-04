@@ -12,7 +12,7 @@
          adapter references TUnit. The SnapshotTests project uses SnapshotAssertions.TUnit
          (sibling family package) for PublicApi snapshot pinning; that's a test-time dependency,
          never a runtime dependency. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
     <PackageVersion Include="Microsoft.Sbom.Targets" Version="4.1.5" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     <PackageVersion Include="PublicApiGenerator" Version="11.5.4" />
