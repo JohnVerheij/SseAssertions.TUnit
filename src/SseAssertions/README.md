@@ -1,5 +1,8 @@
 # SseAssertions
 
+> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family of assertion extensions for TUnit.
+
+
 [![NuGet](https://img.shields.io/nuget/v/SseAssertions.svg)](https://www.nuget.org/packages/SseAssertions/)
 [![Downloads](https://img.shields.io/nuget/dt/SseAssertions.svg)](https://www.nuget.org/packages/SseAssertions/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
