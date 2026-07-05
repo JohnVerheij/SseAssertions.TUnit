@@ -15,7 +15,7 @@
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. A single HasSseEvent(eventName) chain on the string, Stream, and HttpResponseMessage receivers with frame narrowers (WithData / WithDataParsedAs&lt;T&gt; / WithId / WithRetryMillis) and AtLeast / AtMost / Exactly count terminators; the streaming receivers add cancellation-bounded partial-buffer reads and default-on Content-Type: text/event-stream validation. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
-    <PackageTags>tunit;sse;server-sent-events;testing;assertions;dotnet;aot</PackageTags>
+    <PackageTags>tunit;assertions;testing;sse;server-sent-events;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

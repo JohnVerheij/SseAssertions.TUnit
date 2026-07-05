@@ -15,7 +15,7 @@
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
-    <PackageTags>sse;server-sent-events;testing;assertions;dotnet;aot</PackageTags>
+    <PackageTags>assertions;testing;sse;server-sent-events;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

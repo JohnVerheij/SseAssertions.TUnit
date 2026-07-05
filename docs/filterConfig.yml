@@ -1,0 +1,5 @@
+apiRules:
+- include:
+    uidRegex: ^SseAssertions(\.TUnit)?(\..+)?$
+- exclude:
+    uidRegex: .*\.Internal\..*
