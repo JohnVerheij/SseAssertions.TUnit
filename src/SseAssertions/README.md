@@ -1,14 +1,13 @@
 # SseAssertions
 
-> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family. This is the framework-agnostic core; the TUnit assertions live in the matching `.TUnit` package.
-
-
 [![NuGet](https://img.shields.io/nuget/v/SseAssertions.svg)](https://www.nuget.org/packages/SseAssertions/)
 [![Downloads](https://img.shields.io/nuget/dt/SseAssertions.svg)](https://www.nuget.org/packages/SseAssertions/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
 > **Scope:** Test projects only. Not intended for production code.
+
+> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family. This is the framework-agnostic core; the TUnit assertions live in the matching `.TUnit` package.
 
 Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the `SseEvent` public record (per the WHATWG / W3C SSE wire format), the `SseFrameParser` that turns wire text into `IReadOnlyList<SseEvent>`, the `SseFailureMessage` extension point for typed assertions, and the `SseCountComparison` enum that backs count terminators.
 
