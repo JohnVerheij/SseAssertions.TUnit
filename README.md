@@ -13,6 +13,8 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 
 > **Scope:** Test projects only. Not intended for production code.
 
+> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family of assertion extensions for TUnit.
+
 ---
 
 ## Table of contents

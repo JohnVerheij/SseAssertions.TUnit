@@ -7,6 +7,8 @@
 
 > **Scope:** Test projects only. Not intended for production code.
 
+> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family. This is the framework-agnostic core; the TUnit assertions live in the matching `.TUnit` package.
+
 Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the `SseEvent` public record (per the WHATWG / W3C SSE wire format), the `SseFrameParser` that turns wire text into `IReadOnlyList<SseEvent>`, the `SseFailureMessage` extension point for typed assertions, and the `SseCountComparison` enum that backs count terminators.
 
 > **Full documentation, roadmap, and the TUnit adapter:** [github.com/JohnVerheij/SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
