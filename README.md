@@ -76,7 +76,7 @@ dotnet add package SseAssertions.TUnit
 dotnet add package SseAssertions
 ```
 
-**Requirements:** TUnit 1.63.25 or later, .NET 10. AOT-compatible, trimmable.
+**Requirements:** TUnit 1.64.6 or later, .NET 10. AOT-compatible, trimmable.
 
 ## Package layout
 
