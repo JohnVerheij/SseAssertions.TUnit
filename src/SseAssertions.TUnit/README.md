@@ -44,7 +44,7 @@ dotnet add package SseAssertions.TUnit
 
 The framework-agnostic `SseAssertions` core (defining the `SseEvent` public record, `SseFrameParser`, and `SseFailureMessage` factories) comes transitively.
 
-**Requirements:** TUnit 1.63.25 or later, .NET 10. AOT-compatible, trimmable, no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.64.6 or later, .NET 10. AOT-compatible, trimmable, no runtime reflection in the assertion path.
 
 ## Quick start
 
