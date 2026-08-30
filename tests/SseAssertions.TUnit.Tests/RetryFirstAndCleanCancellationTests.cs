@@ -143,7 +143,7 @@ internal sealed class RetryFirstAndCleanCancellationTests
     {
         ct.ThrowIfCancellationRequested();
         string nullBody = null!;
-        await Assert.That(async () => await Task.Run(() => nullBody.HasSseRetryDirectiveFirst()))
+        await Assert.That(async () => await Task.Run(() => nullBody.HasSseRetryDirectiveFirst(), ct))
             .Throws<ArgumentNullException>();
     }
 

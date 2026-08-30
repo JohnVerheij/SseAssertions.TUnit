@@ -67,7 +67,7 @@ internal sealed class HasFirstSseEventTests
     {
         ct.ThrowIfCancellationRequested();
         string nullBody = null!;
-        var ex = await Assert.That(async () => await Task.Run(() => nullBody.HasFirstSseEvent("x")))
+        var ex = await Assert.That(async () => await Task.Run(() => nullBody.HasFirstSseEvent("x"), ct))
             .Throws<System.ArgumentNullException>();
         await Assert.That(ex).IsNotNull();
     }
@@ -77,7 +77,7 @@ internal sealed class HasFirstSseEventTests
     {
         ct.ThrowIfCancellationRequested();
         string nullName = null!;
-        var ex = await Assert.That(async () => await Task.Run(() => CycleThenComplete.HasFirstSseEvent(nullName)))
+        var ex = await Assert.That(async () => await Task.Run(() => CycleThenComplete.HasFirstSseEvent(nullName), ct))
             .Throws<System.ArgumentNullException>();
         await Assert.That(ex).IsNotNull();
     }

@@ -144,7 +144,7 @@ internal sealed class HasSseContentTypeTests
         ct.ThrowIfCancellationRequested();
         HttpResponseMessage nullResponse = null!;
 
-        var ex = await Assert.That(async () => await Task.Run(() => nullResponse.HasSseContentType()))
+        var ex = await Assert.That(async () => await Task.Run(() => nullResponse.HasSseContentType(), ct))
             .Throws<System.ArgumentNullException>();
 
         await Assert.That(ex).IsNotNull();

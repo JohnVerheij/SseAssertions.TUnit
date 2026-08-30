@@ -137,7 +137,7 @@ internal sealed class SseHasEventHttpTests
     {
         ct.ThrowIfCancellationRequested();
         HttpResponseMessage nullResponse = null!;
-        var ex = await Assert.That(async () => await Assert.That(nullResponse).HasSseEvent("tick"))
+        var ex = await Assert.That(async () => await Assert.That(nullResponse).HasSseEvent("tick", cancellationToken: ct))
             .Throws<AssertionException>();
         await Assert.That(ex!.Message).Contains("receiver was null");
     }
@@ -148,7 +148,7 @@ internal sealed class SseHasEventHttpTests
         ct.ThrowIfCancellationRequested();
         using var response = BuildResponse(ThreeTicks, "text/event-stream");
         string nullName = null!;
-        var ex = await Assert.That(async () => await Assert.That(response).HasSseEvent(nullName))
+        var ex = await Assert.That(async () => await Assert.That(response).HasSseEvent(nullName, cancellationToken: ct))
             .Throws<System.ArgumentNullException>();
         await Assert.That(ex).IsNotNull();
     }
@@ -158,7 +158,7 @@ internal sealed class SseHasEventHttpTests
     {
         ct.ThrowIfCancellationRequested();
         using var response = BuildResponse(ThreeTicks, "text/event-stream");
-        var ex = await Assert.That(async () => await Assert.That(response).HasSseEvent("tick").AtLeast(-1))
+        var ex = await Assert.That(async () => await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(-1))
             .Throws<System.ArgumentOutOfRangeException>();
         await Assert.That(ex).IsNotNull();
     }

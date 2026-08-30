@@ -388,12 +388,12 @@ public static class SseStreamAndHttpAssertions
     /// naming the transport exception that surfaced.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
     [GenerateAssertion]
-    public static async Task<AssertionResult> EndsCleanlyOnCancellation(
+    public static Task<AssertionResult> EndsCleanlyOnCancellation(
         this Stream stream, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        return await DrainExpectingCleanCancellationAsync(
-            _ => new ValueTask<Stream>(stream), cancellationToken).ConfigureAwait(false);
+        return DrainExpectingCleanCancellationAsync(
+            _ => new ValueTask<Stream>(stream), cancellationToken);
     }
 
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body tears down cleanly when
