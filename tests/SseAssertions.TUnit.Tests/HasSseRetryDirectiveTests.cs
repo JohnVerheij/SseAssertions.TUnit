@@ -104,7 +104,7 @@ internal sealed class HasSseRetryDirectiveTests
     {
         ct.ThrowIfCancellationRequested();
         string nullBody = null!;
-        var ex = await Assert.That(async () => await Task.Run(() => nullBody.HasSseRetryDirective()))
+        var ex = await Assert.That(async () => await Task.Run(() => nullBody.HasSseRetryDirective(), ct))
             .Throws<System.ArgumentNullException>();
         await Assert.That(ex).IsNotNull();
     }

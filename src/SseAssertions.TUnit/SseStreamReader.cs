@@ -74,7 +74,7 @@ internal static class SseStreamReader
         var encoding = ResolveEncoding(response);
         // CancellationToken.None is deliberate: cancellation during acquisition must not throw out of
         // the assertion; the token below bounds the body read and yields the cancellation-cut flag.
-        var stream = await response.Content!.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
+        var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
         return await ReadAsync(stream, encoding, cancellationToken).ConfigureAwait(false);
     }
 

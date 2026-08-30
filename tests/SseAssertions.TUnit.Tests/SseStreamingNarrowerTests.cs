@@ -187,7 +187,7 @@ internal sealed class SseStreamingNarrowerTests
         Func<Task<HttpResponseMessage?>> throwingSource =
             () => throw new InvalidOperationException("boom");
         var ex = await Assert.That(async () =>
-                await Assert.That(throwingSource).HasSseEvent("tick").AtLeast(1))
+                await Assert.That(throwingSource).HasSseEvent("tick", cancellationToken: ct).AtLeast(1))
             .Throws<AssertionException>();
 
         await Assert.That(ex!.Message).Contains("InvalidOperationException");
@@ -201,7 +201,7 @@ internal sealed class SseStreamingNarrowerTests
         Func<Task<Stream?>> throwingSource =
             () => throw new InvalidOperationException("boom");
         var ex = await Assert.That(async () =>
-                await Assert.That(throwingSource).HasSseEvent("tick").AtLeast(1))
+                await Assert.That(throwingSource).HasSseEvent("tick", cancellationToken: ct).AtLeast(1))
             .Throws<AssertionException>();
 
         await Assert.That(ex!.Message).Contains("InvalidOperationException");
@@ -231,7 +231,7 @@ internal sealed class SseStreamingNarrowerTests
         // The supplied token (default/None) never fires; the stream throws an OperationCanceledException
         // of its own (modelling an HttpClient timeout). It must propagate, not be masked as a
         // cancellation-cut diagnostic.
-        await Assert.That(async () => await Assert.That(stream).HasSseEvent("tick"))
+        await Assert.That(async () => await Assert.That(stream).HasSseEvent("tick", cancellationToken: ct))
             .Throws<OperationCanceledException>();
     }
 
