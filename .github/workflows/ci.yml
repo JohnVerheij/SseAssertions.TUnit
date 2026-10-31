@@ -20,7 +20,7 @@ jobs:
     # Shared family CI: build, tests with coverage, license gate, pack, smoke test against the packed
     # package, Native AOT gate. See https://github.com/JohnVerheij/assertions-ci for the inputs and the
     # repository contract.
-    uses: JohnVerheij/assertions-ci/.github/workflows/package-ci.yml@7db16f705d375ef388195885c83abb9b8fd47efa # feat/package-ci (pre-release)
+    uses: JohnVerheij/assertions-ci/.github/workflows/package-ci.yml@916d3ca1d50016135cdd67ae7688fb173818f3f2 # v1.0.0
     with:
       package: SseAssertions
     permissions:
