@@ -9,7 +9,7 @@
 
 > Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family. This is the framework-agnostic core; the TUnit assertions live in the matching `.TUnit` package.
 
-Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the `SseEvent` public record (per the WHATWG / W3C SSE wire format), the `SseFrameParser` that turns wire text into `IReadOnlyList<SseEvent>`, the `SseFailureMessage` extension point for typed assertions, and the `SseCountComparison` enum that backs count terminators.
+Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. Defines the `SseEvent` public record (per the WHATWG / W3C SSE wire format), the `SseFrameParser` that turns wire text into `IReadOnlyList<SseEvent>`, `SseStream` (connect to a live endpoint, returning once its first frame has arrived) and `SseEventReader` (read events as they arrive), the `SseFailureMessage` extension point for typed assertions, and the `SseCountComparison` enum that backs count terminators.
 
 > **Full documentation, roadmap, and the TUnit adapter:** [github.com/JohnVerheij/SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 
@@ -19,7 +19,9 @@ Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test pro
 |---|---|
 | `SseEvent` (public record) | Stable public data type. `EventName` (non-nullable, defaults to `"message"` per the WHATWG spec when no `event:` directive appears), `Data` (non-null), `Id?`, `RetryMillis?`. |
 | `SseFrameParser.Parse(string)` | WHATWG / W3C SSE wire-format parser; handles all three line terminators, strips a UTF-8 BOM at offset 0, ignores comment lines, accumulates multi-line data with `\n` joins. |
-| `SseFailureMessage` | Curated failure-message factories (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`, `UncleanCancellation`) for consumer-authored typed SSE assertions. |
+| `SseStream.OpenAsync(client, uri or request, cancellationToken)` | Sends the request, checks the status and the `text/event-stream` media type, and returns once the first frame has arrived (`FirstFrame`, for example its `retry:`). The result is the response body as a `Stream`, positioned after that frame; `ReadEventsAsync` enumerates the events that follow. |
+| `SseEventReader` | Reads events from any stream one at a time, as they arrive (`ReadAsync`), with the parsing rules of `SseFrameParser`. On an `SseStream`, readers created one after another continue exactly where the previous one stopped. |
+| `SseFailureMessage` | Curated failure-message factories (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `IdNotMatched`, `IdPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`, `UntilEventNotReached`, `EventIdsNotAsExpected`, `UncleanCancellation`) for consumer-authored typed SSE assertions. |
 | `SseCountComparison` (public enum) | Comparison label (`AtLeast`, `AtMost`, `Exactly`) carried by `EventCountMismatch`. |
 | `SseFormat.LooksLikeServerSentEvents(string)` | Lightweight discriminator. |
 

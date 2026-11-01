@@ -42,7 +42,7 @@ public static class SseFormatAssertions
     }
 
     /// <summary>Asserts the first SSE frame parsed from <paramref name="body"/> has
-    /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabelled frames match
+    /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabeled frames match
     /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule.</summary>
     /// <param name="body">The SSE wire-format body to inspect.</param>
     /// <param name="eventName">The event-type name expected on the first frame.</param>
@@ -118,33 +118,41 @@ public static class SseFormatAssertions
             }
         }
 
-        if (expectedMillis is null)
+        return AssertionResult.Failed(DescribeRetryDirectiveMiss(expectedMillis, observedValues));
+    }
+
+    /// <summary>Describes a missing <c>retry:</c> directive: none at all, or none with the expected value.</summary>
+    /// <param name="expectedMillis">The expected value, or <see langword="null"/> when any value would do.</param>
+    /// <param name="observedValues">The retry values the frames carried.</param>
+    /// <returns>The failure message.</returns>
+    private static string DescribeRetryDirectiveMiss(int? expectedMillis, List<int> observedValues)
+    {
+        if (expectedMillis is not { } expected)
         {
-            return AssertionResult.Failed(
-                "the stream to contain a \"retry:\" directive\n  but no frame carried a retry value");
+            return "the stream to contain a \"retry:\" directive\n  but no frame carried a retry value";
         }
 
+        var head = string.Concat(
+            "the stream to contain a \"retry: ",
+            expected.ToString(CultureInfo.InvariantCulture),
+            "\" directive\n  but ");
         if (observedValues.Count is 0)
         {
-            return AssertionResult.Failed(string.Concat(
-                "the stream to contain a \"retry: ",
-                expectedMillis.Value.ToString(CultureInfo.InvariantCulture),
-                "\" directive\n  but no frame carried a retry value"));
+            return head + "no frame carried a retry value";
         }
 
-        var sb = new StringBuilder();
-        sb.Append("the stream to contain a \"retry: ")
-          .Append(expectedMillis.Value.ToString(CultureInfo.InvariantCulture))
-          .Append("\" directive\n  but observed retry value(s): ");
+        var sb = new StringBuilder(head).Append("observed retry value(s): ");
         for (var i = 0; i < observedValues.Count; i++)
         {
             if (i > 0)
             {
                 sb.Append(", ");
             }
+
             sb.Append(observedValues[i].ToString(CultureInfo.InvariantCulture));
         }
-        return AssertionResult.Failed(sb.ToString());
+
+        return sb.ToString();
     }
 
     /// <summary>Asserts the SSE stream parsed from <paramref name="body"/> sends a <c>retry:</c>
@@ -183,30 +191,30 @@ public static class SseFormatAssertions
         return EvaluateRetryDirectiveFirst(body, millis);
     }
 
-    internal static AssertionResult EvaluateRetryDirectiveFirst(string body, int? expectedMillis = null)
+    /// <summary>Splits a body into its field lines: a single leading UTF-8 BOM is stripped the same way
+    /// <see cref="SseFrameParser.Parse"/> does (so it cannot mask a first <c>retry:</c> field), and the three line
+    /// terminators split identically.</summary>
+    /// <param name="body">The SSE body.</param>
+    /// <returns>The lines, without terminators.</returns>
+    private static string[] SplitFieldLines(string body)
     {
-        // Strip a single leading UTF-8 BOM (U+FEFF) the same way SseFrameParser.Parse does, so a
-        // stream that opens with a BOM does not mask the first `retry:` field from the wire-level
-        // scan below (without this, lines[0] starts with the BOM and IsField(.., "retry") misses it).
         if (body.Length > 0 && body[0] is '\uFEFF')
         {
             body = body[1..];
         }
 
-        // Wire-level check: the first `retry:` field line must precede the first data-bearing line.
-        // A `data:` line with an empty value carries no payload and does not count as "data first":
-        // the standard ASP.NET Core SSE serializer writes a reconnection control frame as
-        // `event: retry` + an empty `data:` line + `retry: <ms>` (the BCL fixes field order to
-        // event/data/id/retry), so the empty `data:` precedes `retry:` on the wire even though the
-        // directive is the first dispatched event. Only a non-empty `data:` value before the first
-        // `retry:` fails. The order is read from the raw field lines rather than the parsed event
-        // list because a retry-only frame carries no data and is dropped by the WHATWG parser. Line
-        // endings normalize to LF first so \r\n / \r / \n split identically.
-        var normalized = body.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        var lines = normalized.Split('\n');
+        return body.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+    }
+
+    /// <summary>Finds the first <c>retry:</c> field line and the first line carrying a non-empty <c>data:</c>
+    /// value.</summary>
+    /// <param name="lines">The field lines.</param>
+    /// <returns>Their indexes, each -1 when absent.</returns>
+    private static (int FirstRetry, int FirstData) FindFirstRetryAndData(string[] lines)
+    {
         var firstRetry = -1;
         var firstData = -1;
-        for (var i = 0; i < lines.Length; i++)
+        for (var i = 0; i < lines.Length && (firstRetry < 0 || firstData < 0); i++)
         {
             if (firstRetry < 0 && IsField(lines[i], "retry"))
             {
@@ -217,14 +225,24 @@ public static class SseFormatAssertions
             {
                 firstData = i;
             }
-
-            if (firstRetry >= 0 && firstData >= 0)
-            {
-                // Both first-occurrences located; later lines cannot change the outcome.
-                break;
-            }
         }
 
+        return (firstRetry, firstData);
+    }
+
+    internal static AssertionResult EvaluateRetryDirectiveFirst(string body, int? expectedMillis = null)
+    {
+        // Wire-level check: the first `retry:` field line must precede the first data-bearing line.
+        // A `data:` line with an empty value carries no payload and does not count as "data first":
+        // the standard ASP.NET Core SSE serializer writes a reconnection control frame as
+        // `event: retry` + an empty `data:` line + `retry: <ms>` (the BCL fixes field order to
+        // event/data/id/retry), so the empty `data:` precedes `retry:` on the wire even though the
+        // directive is the first dispatched event. Only a non-empty `data:` value before the first
+        // `retry:` fails. The order is read from the raw field lines rather than the parsed event
+        // list because a retry-only frame carries no data and is dropped by the WHATWG parser. Line
+        // endings normalize to LF first so \r\n / \r / \n split identically.
+        var lines = SplitFieldLines(body);
+        var (firstRetry, firstData) = FindFirstRetryAndData(lines);
         if (firstRetry < 0)
         {
             return AssertionResult.Failed(

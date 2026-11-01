@@ -115,19 +115,11 @@ internal sealed class SseStreamParser
         }
     }
 
-    /// <summary>Copies buffered bytes into <paramref name="destination"/>, dropping the line feed of a CRLF whose
-    /// carriage return ended the last consumed line.</summary>
+    /// <summary>Copies buffered bytes into <paramref name="destination"/>. A pending line feed never meets buffered
+    /// bytes: it is set only when a carriage return was the last buffered byte, and the next fill consumes
+    /// it.</summary>
     private int TakeBuffered(Span<byte> destination)
     {
-        if (_skipLineFeed && _start < _end)
-        {
-            _skipLineFeed = false;
-            if (_buffer[_start] is LineFeed)
-            {
-                _start++;
-            }
-        }
-
         var count = Math.Min(destination.Length, _end - _start);
         _buffer.AsSpan(_start, count).CopyTo(destination);
         _start += count;
@@ -164,15 +156,7 @@ internal sealed class SseStreamParser
     private bool TryTakeLine(SseReadProgress progress, out string line)
     {
         line = string.Empty;
-        if (_skipLineFeed && _start < _end)
-        {
-            _skipLineFeed = false;
-            if (_buffer[_start] is LineFeed)
-            {
-                _start++;
-            }
-        }
-
+        SkipPendingLineFeed();
         if (_atStart && !TrySkipByteOrderMark())
         {
             return false;
@@ -185,24 +169,45 @@ internal sealed class SseStreamParser
             return false;
         }
 
-        var consumed = terminator + 1;
-        if (pending[terminator] is CarriageReturn)
-        {
-            if (terminator + 1 < pending.Length)
-            {
-                consumed += pending[terminator + 1] is LineFeed ? 1 : 0;
-            }
-            else
-            {
-                // The line feed of a CRLF may arrive with the next read.
-                _skipLineFeed = true;
-            }
-        }
-
         line = Encoding.UTF8.GetString(pending[..terminator]);
         progress.OnText(line);
-        _start += consumed;
+        _start += TerminatorEnd(pending, terminator);
         return true;
+    }
+
+    /// <summary>Drops the line feed of a CRLF whose carriage return ended the previous line, once it has
+    /// arrived.</summary>
+    private void SkipPendingLineFeed()
+    {
+        if (!_skipLineFeed || _start >= _end)
+        {
+            return;
+        }
+
+        _skipLineFeed = false;
+        if (_buffer[_start] is LineFeed)
+        {
+            _start++;
+        }
+    }
+
+    /// <summary>Gets the number of bytes up to and including the terminator at <paramref name="terminator"/>; a
+    /// carriage return at the end of the buffer leaves its line feed pending.</summary>
+    private int TerminatorEnd(ReadOnlySpan<byte> pending, int terminator)
+    {
+        if (pending[terminator] is LineFeed)
+        {
+            return terminator + 1;
+        }
+
+        if (terminator + 1 == pending.Length)
+        {
+            // The line feed of a CRLF may arrive with the next read.
+            _skipLineFeed = true;
+            return terminator + 1;
+        }
+
+        return pending[terminator + 1] is LineFeed ? terminator + 2 : terminator + 1;
     }
 
     /// <summary>Skips a UTF-8 byte order mark at the start of the stream. Waits for more bytes only while the

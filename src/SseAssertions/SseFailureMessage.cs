@@ -31,6 +31,7 @@ public static class SseFailureMessage
 {
     private const int DataTruncationLimit = 80;
     private const int BodyTruncationLimit = 256;
+    private const int IdListLimit = 20;
     private const string TruncationSuffix = "…";
 
     /// <summary>Produces the failure message for an SSE body that could not be parsed.</summary>
@@ -187,6 +188,92 @@ public static class SseFailureMessage
         return sb.ToString();
     }
 
+    /// <summary>Produces the failure message for "no event of the requested type carried an id that satisfies
+    /// the predicate".</summary>
+    /// <param name="eventName">The event-type name the chain asked for.</param>
+    /// <param name="idValues">The <c>Id</c> values of every event of the requested type observed
+    /// (<see langword="null"/> entries represent frames without an <c>id:</c> directive).</param>
+    /// <returns>A failure message listing every observed <c>Id</c> value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="eventName"/> or <paramref name="idValues"/> is
+    /// <see langword="null"/>.</exception>
+    public static string IdPredicateNotMatched(string eventName, IReadOnlyList<string?> idValues)
+    {
+        ArgumentNullException.ThrowIfNull(eventName);
+        ArgumentNullException.ThrowIfNull(idValues);
+
+        var sb = new StringBuilder();
+        sb.Append("to find at least one event of type \"")
+          .Append(eventName)
+          .Append("\" whose id satisfies the predicate\n  but observed ")
+          .Append(idValues.Count.ToString(CultureInfo.InvariantCulture))
+          .Append(" event(s) of that type; none carried a matching id");
+        AppendIdLines(sb, idValues);
+        return sb.ToString();
+    }
+
+    /// <summary>Produces the failure message for a read that the cancellation token ended before the event that
+    /// closes the observation window (<c>Until(eventName)</c>) arrived.</summary>
+    /// <param name="untilEventName">The event-type name that closes the window.</param>
+    /// <param name="eventsRead">The number of events read before the cancellation.</param>
+    /// <returns>A failure message naming the missing event.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="untilEventName"/> is
+    /// <see langword="null"/>.</exception>
+    public static string UntilEventNotReached(string untilEventName, int eventsRead)
+    {
+        ArgumentNullException.ThrowIfNull(untilEventName);
+
+        return string.Concat(
+            "the read to reach an event of type \"",
+            untilEventName,
+            "\", which ends the observation window\n  but the read was canceled after ",
+            eventsRead.ToString(CultureInfo.InvariantCulture),
+            " event(s), before one arrived");
+    }
+
+    /// <summary>Produces the failure message for event ids that broke the expected sequence.</summary>
+    /// <param name="expectation">What the ids were expected to be, for example "every event to carry an id,
+    /// increasing strictly".</param>
+    /// <param name="violation">What went wrong, for example "event 3 has id \"2\", not greater than \"2\"", or
+    /// "no event arrived".</param>
+    /// <param name="ids">The ids of the events read, in order (<see langword="null"/> for an event without an
+    /// <c>id:</c> directive). The first 20 are listed.</param>
+    /// <returns>A failure message naming the expectation, the violation, and the ids seen.</returns>
+    /// <exception cref="ArgumentNullException">Any argument is <see langword="null"/>.</exception>
+    public static string EventIdsNotAsExpected(string expectation, string violation, IReadOnlyList<string?> ids)
+    {
+        ArgumentNullException.ThrowIfNull(expectation);
+        ArgumentNullException.ThrowIfNull(violation);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var sb = new StringBuilder();
+        sb.Append(expectation).Append("\n  but ").Append(violation);
+        if (ids.Count is 0)
+        {
+            return sb.ToString();
+        }
+
+        sb.Append("\n  ids: ");
+        var shown = Math.Min(ids.Count, IdListLimit);
+        for (var i = 0; i < shown; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(ids[i] is { } id ? string.Concat("\"", id, "\"") : "<absent>");
+        }
+
+        if (ids.Count > shown)
+        {
+            sb.Append(", " + TruncationSuffix + " (")
+              .Append((ids.Count - shown).ToString(CultureInfo.InvariantCulture))
+              .Append(" more)");
+        }
+
+        return sb.ToString();
+    }
+
     /// <summary>Produces the failure message for an exception thrown by the data deserializer.</summary>
     /// <param name="eventName">The event-type name the chain asked for.</param>
     /// <param name="data">The raw <c>Data</c> value the deserializer was applied to (truncated at
@@ -266,7 +353,7 @@ public static class SseFailureMessage
             actualContentType ?? "<absent>");
     }
 
-    /// <summary>Produces the failure message for a cancelled read whose partial buffer did not
+    /// <summary>Produces the failure message for a canceled read whose partial buffer did not
     /// satisfy the chain.</summary>
     /// <param name="bytesReceived">The number of bytes received before cancellation fired.</param>
     /// <param name="eventsParsed">The number of fully-terminated events the parser recovered from
@@ -281,7 +368,7 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(partialBodyExcerpt);
 
         return string.Concat(
-            "the read was cancelled after ",
+            "the read was canceled after ",
             bytesReceived.ToString(CultureInfo.InvariantCulture),
             " byte(s); parsed ",
             eventsParsed.ToString(CultureInfo.InvariantCulture),
@@ -290,8 +377,8 @@ public static class SseFailureMessage
     }
 
     /// <summary>Produces the failure message for a stream that did not tear down cleanly when its
-    /// read was cancelled: a transport exception surfaced instead of cooperative cancellation.</summary>
-    /// <param name="exception">The exception that surfaced from the cancelled read.</param>
+    /// read was canceled: a transport exception surfaced instead of cooperative cancellation.</summary>
+    /// <param name="exception">The exception that surfaced from the canceled read.</param>
     /// <returns>A failure message naming the exception type and message.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="exception"/> is <see langword="null"/>.</exception>
     public static string UncleanCancellation(Exception exception)
@@ -299,10 +386,31 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(exception);
 
         return string.Concat(
-            "the stream to end cleanly when its read was cancelled\n  but a ",
+            "the stream to end cleanly when its read was canceled\n  but a ",
             exception.GetType().Name,
             " surfaced instead of cooperative cancellation: ",
             exception.Message);
+    }
+
+    private static void AppendIdLines(StringBuilder sb, IReadOnlyList<string?> idValues)
+    {
+        if (idValues.Count is 0)
+        {
+            return;
+        }
+
+        sb.Append(":\n");
+        for (var i = 0; i < idValues.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append('\n');
+            }
+
+            var value = idValues[i];
+            sb.Append("    id: ");
+            sb.Append(value is null ? "<absent>" : string.Concat("\"", value, "\""));
+        }
     }
 
     private static string TruncateData(string data)

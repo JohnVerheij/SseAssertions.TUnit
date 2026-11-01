@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -19,14 +20,18 @@ namespace SseAssertions.TUnit;
 /// in-order, retry-directive, content-type, and clean-cancellation checks. The frame-narrowing
 /// <c>HasSseEvent</c> chain on these same receivers lives in
 /// <see cref="SseStreamHasEventAssertion"/> and <see cref="SseResponseHasEventAssertion"/>; the
-/// shared read and matching helpers (<see cref="SseStreamReader"/>, <see cref="SseEventMatcher"/>)
+/// shared read and matching helpers (<see cref="SseEventReader"/>, <see cref="SseEventMatcher"/>)
 /// keep the diagnostics identical across all three receivers.
 /// </summary>
 /// <remarks>
-/// <para>Cancellation semantics: if the supplied <see cref="CancellationToken"/> fires during
-/// the body read, the partial buffer is parsed as best-effort SSE and the assertion runs against
-/// the partial event list. On chain pass, the assertion passes; on chain fail, the failure
-/// message renders the cancellation-cut-the-read variant
+/// <para>Reads: the body is decoded as UTF-8, as the SSE specification requires. <c>HasFirstSseEvent</c> reads
+/// only the first event and <c>HasSseEventsInOrder</c> stops once the sequence is complete; the retry-directive
+/// assertions read the whole body, because a bare <c>retry:</c> frame carries no event (on a live stream, use
+/// <see cref="SseStream.FirstFrame"/>). On an <see cref="SseStream"/> an assertion continues after the last
+/// event the previous one read.</para>
+/// <para>Cancellation semantics: the supplied <see cref="CancellationToken"/> is the upper bound of the read.
+/// If it fires first, the assertion runs against the events that arrived. On chain pass, the assertion passes;
+/// on chain fail, the failure message renders the cancellation-cut-the-read variant
 /// (<see cref="SseFailureMessage.CancellationCutRead(int, int, string)"/>).</para>
 /// <para>On <see cref="HttpResponseMessage"/>, <c>strictContentType</c> defaults to
 /// <see langword="true"/>: a response without <c>Content-Type: text/event-stream</c> fails with
@@ -59,7 +64,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        var contentType = response.Content?.Headers?.ContentType;
+        var contentType = response.Content.Headers.ContentType;
         var expectedLine = strict
             ? "the response to have Content-Type exactly \"text/event-stream\""
             : "the response to have Content-Type starting with \"text/event-stream\"";
@@ -83,7 +88,7 @@ public static class SseStreamAndHttpAssertions
     }
 
     /// <summary>Asserts the first SSE frame in <paramref name="response"/>'s body has
-    /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabelled frames match
+    /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabeled frames match
     /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. Body is read
     /// in full before parsing; <paramref name="cancellationToken"/> bounds the read.</summary>
     /// <param name="response">The HTTP response carrying the SSE body.</param>
@@ -110,20 +115,19 @@ public static class SseStreamAndHttpAssertions
 
         if (strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
             }
         }
 
-        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadResponseBodyAsync(
-            response, cancellationToken).ConfigureAwait(false);
-        return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
+        var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
+        return await EvaluateFirstEventAsync(stream, eventName, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Asserts the first SSE frame in <paramref name="stream"/> has <c>event:</c>
-    /// equal to <paramref name="eventName"/>. Unlabelled frames match
+    /// equal to <paramref name="eventName"/>. Unlabeled frames match
     /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. The full
     /// stream is read before parsing; <paramref name="cancellationToken"/> bounds the read.</summary>
     /// <param name="stream">The SSE stream.</param>
@@ -135,15 +139,13 @@ public static class SseStreamAndHttpAssertions
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
     /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
     [GenerateAssertion]
-    public static async Task<AssertionResult> HasFirstSseEvent(
+    public static Task<AssertionResult> HasFirstSseEvent(
         this Stream stream, string eventName, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(eventName);
 
-        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadAsync(
-            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return EvaluateFirstEventWithCancellation(body, bytesReceived, cancelled, eventName);
+        return EvaluateFirstEventAsync(stream, eventName, cancellationToken);
     }
 
     /// <summary>Asserts the supplied <see cref="Stream"/> contains the named SSE events in order.
@@ -161,7 +163,7 @@ public static class SseStreamAndHttpAssertions
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
     /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
     [GenerateAssertion]
-    public static async Task<AssertionResult> HasSseEventsInOrder(
+    public static Task<AssertionResult> HasSseEventsInOrder(
         this Stream stream,
         System.Collections.Generic.IReadOnlyList<string> eventNames,
         bool strictOrdering = false,
@@ -170,10 +172,7 @@ public static class SseStreamAndHttpAssertions
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(eventNames);
 
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        var events = SseFrameParser.Parse(body);
-        return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
+        return EvaluateInOrderAsync(stream, eventNames, strictOrdering, cancellationToken);
     }
 
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains the named
@@ -205,16 +204,15 @@ public static class SseStreamAndHttpAssertions
 
         if (strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
             }
         }
 
-        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        var events = SseFrameParser.Parse(body);
-        return SseEventsInOrderAssertion.Evaluate(events, eventNames, strictOrdering);
+        var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
+        return await EvaluateInOrderAsync(stream, eventNames, strictOrdering, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Asserts the supplied <see cref="Stream"/> contains a <c>retry:</c> directive.
@@ -263,7 +261,7 @@ public static class SseStreamAndHttpAssertions
 
         if (strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
@@ -312,7 +310,7 @@ public static class SseStreamAndHttpAssertions
 
         if (strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
@@ -366,7 +364,7 @@ public static class SseStreamAndHttpAssertions
 
         if (strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
@@ -378,10 +376,10 @@ public static class SseStreamAndHttpAssertions
     }
 
     /// <summary>Asserts the supplied <see cref="Stream"/> tears down cleanly when its read is
-    /// cancelled: the read either completes normally or surfaces cooperative cancellation
+    /// canceled: the read either completes normally or surfaces cooperative cancellation
     /// (<see cref="OperationCanceledException"/>), but not a transport exception
     /// (<see cref="IOException"/>, <see cref="HttpRequestException"/>). Pass a token that fires
-    /// mid-stream; the assertion drains and discards content, checking only teardown behaviour.</summary>
+    /// mid-stream; the assertion drains and discards content, checking only teardown behavior.</summary>
     /// <param name="stream">The SSE stream whose cancellation teardown to verify.</param>
     /// <param name="cancellationToken">The token expected to cancel the read mid-stream.</param>
     /// <returns>A passing assertion when the read ends cleanly; otherwise a failing assertion
@@ -397,10 +395,10 @@ public static class SseStreamAndHttpAssertions
     }
 
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body tears down cleanly when
-    /// its read is cancelled: the read either completes normally or surfaces cooperative
+    /// its read is canceled: the read either completes normally or surfaces cooperative
     /// cancellation (<see cref="OperationCanceledException"/>), but not a transport exception
     /// (<see cref="IOException"/>, <see cref="HttpRequestException"/>). Pass a token that fires
-    /// mid-stream; the assertion drains and discards content, checking only teardown behaviour.</summary>
+    /// mid-stream; the assertion drains and discards content, checking only teardown behavior.</summary>
     /// <param name="response">The HTTP response carrying the SSE body whose cancellation teardown
     /// to verify.</param>
     /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
@@ -485,28 +483,102 @@ public static class SseStreamAndHttpAssertions
         }
     }
 
-    /// <summary>Builds the failure message for a read cancelled by a token other than the one the
+    /// <summary>Builds the failure message for a read canceled by a token other than the one the
     /// assertion was given (for example, an <see cref="HttpClient.Timeout"/> firing on a stalled
     /// server), which is not the cooperative teardown <c>EndsCleanlyOnCancellation</c> verifies.</summary>
     /// <param name="exception">The cancellation exception that surfaced from a foreign token.</param>
     /// <returns>The failure message naming the exception type and message.</returns>
     private static string ForeignCancellationMessage(OperationCanceledException exception)
         => string.Concat(
-            "the read to be cancelled by the supplied cancellation token\n  but it was cancelled by a different token (for example, an HttpClient timeout): ",
+            "the read to be canceled by the supplied cancellation token\n  but it was canceled by a different token (for example, an HttpClient timeout): ",
             exception.GetType().Name,
             ": ",
             exception.Message);
 
-    private static AssertionResult EvaluateFirstEventWithCancellation(
-        string body, int bytesReceived, bool cancelled, string expectedEventName)
+    /// <summary>Reads the first event of <paramref name="stream"/> and checks its name; the read stops there.</summary>
+    /// <param name="stream">The body.</param>
+    /// <param name="expectedEventName">The event-type name expected on the first event.</param>
+    /// <param name="cancellationToken">The upper bound of the read.</param>
+    /// <returns>The assertion result; the cancellation-cut diagnostic when the token ends the read first.</returns>
+    private static async Task<AssertionResult> EvaluateFirstEventAsync(
+        Stream stream, string expectedEventName, CancellationToken cancellationToken)
     {
-        var events = SseFrameParser.Parse(body);
-        if (events.Count is 0 && cancelled)
+        var reader = new SseEventReader(stream);
+        SseEvent? first;
+        try
         {
-            return AssertionResult.Failed(SseFailureMessage.CancellationCutRead(bytesReceived, 0, body));
+            first = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return AssertionResult.Failed(SseFailureMessage.CancellationCutRead(
+                int.CreateSaturating(reader.BytesRead), 0, reader.TextExcerpt));
         }
 
-        return SseFormatAssertions.EvaluateFirstEvent(events, expectedEventName);
+        return SseFormatAssertions.EvaluateFirstEvent(first is null ? [] : [first], expectedEventName);
+    }
+
+    /// <summary>Reads events from <paramref name="stream"/> until the expected names have appeared in order (or
+    /// contiguously), then evaluates what was read. The read stops as soon as the sequence is complete; otherwise
+    /// it runs to the end of the stream or until the token ends it.</summary>
+    /// <param name="stream">The body.</param>
+    /// <param name="expectedNames">The event-type names expected in order.</param>
+    /// <param name="strict">Whether the names must appear contiguously.</param>
+    /// <param name="cancellationToken">The upper bound of the read.</param>
+    /// <returns>The assertion result.</returns>
+    private static async Task<AssertionResult> EvaluateInOrderAsync(
+        Stream stream, IReadOnlyList<string> expectedNames, bool strict, CancellationToken cancellationToken)
+    {
+        if (expectedNames.Count is 0)
+        {
+            return AssertionResult.Passed;
+        }
+
+        var reader = new SseEventReader(stream);
+        var events = new List<SseEvent>();
+        var matched = 0;
+        try
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false) is { } evt)
+            {
+                events.Add(evt);
+                if (!strict && string.Equals(evt.EventName, expectedNames[matched], StringComparison.Ordinal))
+                {
+                    matched++;
+                }
+
+                if (strict ? EndsWith(events, expectedNames) : matched == expectedNames.Count)
+                {
+                    return AssertionResult.Passed;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The token is the upper bound of the read: evaluate what arrived before it.
+        }
+
+        return SseEventsInOrderAssertion.Evaluate(events, expectedNames, strict);
+    }
+
+    /// <summary>Gets whether the last events read carry exactly <paramref name="expectedNames"/>, in order.</summary>
+    private static bool EndsWith(List<SseEvent> events, IReadOnlyList<string> expectedNames)
+    {
+        var offset = events.Count - expectedNames.Count;
+        if (offset < 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < expectedNames.Count; i++)
+        {
+            if (!string.Equals(events[offset + i].EventName, expectedNames[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 }

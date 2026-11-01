@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace SseAssertions;
 
@@ -9,6 +10,9 @@ namespace SseAssertions;
 /// </summary>
 public static class SseFormat
 {
+    /// <summary>The SSE field markers, per the WHATWG specification (case-sensitive ASCII).</summary>
+    private static readonly string[] FieldMarkers = ["event:", "data:", "id:", "retry:"];
+
     /// <summary>
     /// Lightweight discriminator that returns <see langword="true"/> when <paramref name="body"/>
     /// has the textual shape of a Server-Sent Events stream: at least one SSE field line (a line
@@ -45,18 +49,10 @@ public static class SseFormat
 
         // At least one SSE field marker must appear at a line start. Scan line-by-line; field
         // names per the WHATWG specification are case-sensitive ASCII.
-        foreach (var line in body.Split('\n'))
-        {
-            var trimmed = line.TrimEnd('\r');
-            if (trimmed.StartsWith("event:", StringComparison.Ordinal)
-                || trimmed.StartsWith("data:", StringComparison.Ordinal)
-                || trimmed.StartsWith("id:", StringComparison.Ordinal)
-                || trimmed.StartsWith("retry:", StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return body.Split('\n').Any(static line => StartsWithField(line.TrimEnd('\r')));
     }
+
+    /// <summary>Gets whether <paramref name="line"/> starts with one of the SSE field markers.</summary>
+    private static bool StartsWithField(string line)
+        => FieldMarkers.Any(marker => line.StartsWith(marker, StringComparison.Ordinal));
 }

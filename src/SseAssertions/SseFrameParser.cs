@@ -47,29 +47,7 @@ public static class SseFrameParser
 
         var events = new List<SseEvent>();
         var frame = new SseFrameBuilder();
-        var text = body.AsSpan(startOffset);
-        var lineStart = 0;
-        var i = 0;
-        while (i < text.Length)
-        {
-            var c = text[i];
-            if (c is not '\r' and not '\n')
-            {
-                i++;
-                continue;
-            }
-
-            AddIfFrameEnded(frame, text[lineStart..i], events);
-
-            // Advance past the terminator; CRLF advances two chars.
-            i += c is '\r' && i + 1 < text.Length && text[i + 1] is '\n' ? 2 : 1;
-            lineStart = i;
-        }
-
-        if (lineStart < text.Length)
-        {
-            AddIfFrameEnded(frame, text[lineStart..], events);
-        }
+        ParseLines(body.AsSpan(startOffset), frame, events);
 
         // Per spec, the browser dispatches only on a blank line. Some servers omit the final
         // blank line; for an assertion library, dropping the trailing frame is strictly worse
@@ -81,6 +59,30 @@ public static class SseFrameParser
         }
 
         return events;
+    }
+
+    /// <summary>Splits <paramref name="text"/> into lines on any of the three terminators and feeds them to
+    /// <paramref name="frame"/>, adding each completed frame that carries data.</summary>
+    /// <param name="text">The body, without a byte order mark.</param>
+    /// <param name="frame">The frame being accumulated; holds an unterminated last frame afterwards.</param>
+    /// <param name="events">The events parsed so far.</param>
+    private static void ParseLines(ReadOnlySpan<char> text, SseFrameBuilder frame, List<SseEvent> events)
+    {
+        while (!text.IsEmpty)
+        {
+            var terminator = text.IndexOfAny('\r', '\n');
+            if (terminator < 0)
+            {
+                AddIfFrameEnded(frame, text, events);
+                return;
+            }
+
+            AddIfFrameEnded(frame, text[..terminator], events);
+
+            // Advance past the terminator; CRLF advances two chars.
+            var crlf = text[terminator] is '\r' && terminator + 1 < text.Length && text[terminator + 1] is '\n';
+            text = text[(terminator + (crlf ? 2 : 1))..];
+        }
     }
 
     /// <summary>Feeds one line to <paramref name="frame"/> and adds the frame it ends, when it carries data.</summary>

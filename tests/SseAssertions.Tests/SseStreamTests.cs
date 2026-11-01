@@ -209,6 +209,33 @@ internal sealed class SseStreamTests
         await Assert.That(raw).IsEqualTo("rest of the stream");
     }
 
+    /// <summary>After a frame ended by a lone carriage return, a raw read keeps a first byte that is not a line
+    /// feed, and skips a line feed that arrives alone.</summary>
+    [Test]
+    public async Task RawRead_AfterALoneCarriageReturn_HandlesTheNextByte(CancellationToken cancellationToken)
+    {
+        using var keep = new ScriptedStream();
+        using var keepClient = StubHandler.Client(() => StubHandler.Sse(keep), out _);
+        keep.Send("data: first\r\r");
+        await using (var sse = await SseStream.OpenAsync(keepClient, Events, cancellationToken))
+        {
+            keep.Send("xyz");
+            keep.Complete();
+            await Assert.That(await ReadRawToEndAsync(sse, cancellationToken)).IsEqualTo("xyz");
+        }
+
+        using var skip = new ScriptedStream();
+        using var skipClient = StubHandler.Client(() => StubHandler.Sse(skip), out _);
+        skip.Send("data: first\r\r");
+        await using (var sse = await SseStream.OpenAsync(skipClient, Events, cancellationToken))
+        {
+            skip.Send("\n");
+            skip.Send("abc");
+            skip.Complete();
+            await Assert.That(await ReadRawToEndAsync(sse, cancellationToken)).IsEqualTo("abc");
+        }
+    }
+
     /// <summary>Synchronous raw reads (both overloads) serve the buffered bytes, then the response body.</summary>
     [Test]
     public async Task RawRead_Synchronous_ServesBufferedThenBody(CancellationToken cancellationToken)

@@ -14,6 +14,30 @@ namespace SseAssertions.Tests;
 [Timeout(5_000)]
 internal sealed class SseFailureMessageTests
 {
+    /// <summary>The id-predicate message without any observed event has no id list.</summary>
+    [Test]
+    public async Task IdPredicateNotMatched_NoEvents_HasNoIdList(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var message = SseFailureMessage.IdPredicateNotMatched("tick", []);
+
+        await Assert.That(message).Contains("observed 0 event(s)");
+        await Assert.That(message).DoesNotContain("id:");
+    }
+
+    /// <summary>The new factories reject null arguments.</summary>
+    [Test]
+    public async Task NewFactories_NullArguments_Throw(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Assert.That(() => SseFailureMessage.IdPredicateNotMatched(null!, [])).Throws<System.ArgumentNullException>();
+        await Assert.That(() => SseFailureMessage.IdPredicateNotMatched("tick", null!)).Throws<System.ArgumentNullException>();
+        await Assert.That(() => SseFailureMessage.UntilEventNotReached(null!, 0)).Throws<System.ArgumentNullException>();
+        await Assert.That(() => SseFailureMessage.EventIdsNotAsExpected(null!, "v", [])).Throws<System.ArgumentNullException>();
+        await Assert.That(() => SseFailureMessage.EventIdsNotAsExpected("e", null!, [])).Throws<System.ArgumentNullException>();
+        await Assert.That(() => SseFailureMessage.EventIdsNotAsExpected("e", "v", null!)).Throws<System.ArgumentNullException>();
+    }
+
     [Test]
     public async Task ParseFailure_IncludesTruncatedBody(CancellationToken ct)
     {

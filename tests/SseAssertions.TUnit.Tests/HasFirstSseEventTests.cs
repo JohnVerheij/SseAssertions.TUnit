@@ -13,7 +13,7 @@ namespace SseAssertions.TUnit.Tests;
 /// End-to-end tests for the <c>HasFirstSseEvent(eventName)</c> assertion across all three
 /// receivers (<see cref="string"/>, <see cref="Stream"/>, <see cref="HttpResponseMessage"/>).
 /// Covers the happy path, "first event different" failure, empty-stream failure, the WHATWG
-/// default-event-name rule (unlabelled frame matches <c>"message"</c>), and argument validation.
+/// default-event-name rule (unlabeled frame matches <c>"message"</c>), and argument validation.
 /// </summary>
 [Category("Smoke")]
 [Timeout(5_000)]
@@ -54,7 +54,7 @@ internal sealed class HasFirstSseEventTests
     }
 
     [Test]
-    public async Task String_UnlabelledFrameMatchesMessageDefault_Passes(CancellationToken ct)
+    public async Task String_UnlabeledFrameMatchesMessageDefault_Passes(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         // WHATWG: a frame with no `event:` directive defaults to event name "message".
@@ -205,7 +205,7 @@ internal sealed class HasFirstSseEventTests
             await Assert.That(stream).HasFirstSseEvent("anything", cancellationToken: cts.Token);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("cancelled after");
+        await Assert.That(ex!.Message).Contains("canceled after");
         await Assert.That(ex.Message).Contains("0 event(s)");
     }
 

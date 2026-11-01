@@ -29,7 +29,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
     private readonly string[] _expectedEventNames;
     private bool _strict;
 
-    /// <summary>Initialises the assertion. Called by the TUnit source generator.</summary>
+    /// <summary>Initializes the assertion. Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="eventNames">The event-type names expected in order. Matched case-sensitively
     /// against <see cref="SseEvent.EventName"/>.</param>

@@ -11,12 +11,12 @@
     <IsPackable>true</IsPackable>
     <PackageId>SseAssertions</PackageId>
     <ProductName>SseAssertions</ProductName>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
+    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseStream, which connects to a live endpoint and returns once its first frame has arrived; SseEventReader, which reads events as they arrive; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
     <PackageTags>assertions;testing;sse;server-sent-events;dotnet;aot</PackageTags>
-    <PackageProjectUrl>https://github.com/JohnVerheij/SseAssertions.TUnit</PackageProjectUrl>
+    <PackageProjectUrl>https://sseassertions.dev</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- Fallback: nuget.org renders this as a clickable link to the matching GitHub release.
@@ -33,7 +33,7 @@
     <!-- ApiCompat baseline. v0.7.0 is a lockstep bump with no public core change (the streaming
          frame-narrower work lives entirely in the adapter). The only baseline diff is the assembly
          version, recorded in CompatibilitySuppressions.xml against the 0.6.0 baseline. -->
-    <PackageValidationBaselineVersion>0.6.0</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>0.7.0</PackageValidationBaselineVersion>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>

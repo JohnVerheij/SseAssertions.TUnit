@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
-TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points over TUnit's `Assert.That(...)` pipeline for asserting on SSE event streams from HTTP response bodies, streams, and strings. AOT-compatible, trimmable, no runtime reflection in the assertion path.
+TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points over TUnit's `Assert.That(...)` pipeline for asserting on SSE event streams from HTTP response bodies, streams, and strings. For a live endpoint, `SseStream.OpenAsync` returns once the server's first frame has arrived (it has subscribed), so a test can trigger events and assert on them without a sleep; every streaming assertion reads only until its outcome is decided. AOT-compatible, trimmable, no runtime reflection in the assertion path.
 
 > **Scope:** Test projects only. Not intended for production code.
 
@@ -83,8 +83,8 @@ dotnet add package SseAssertions
 
 | Package | Purpose | Depends on |
 |---|---|---|
-| [`SseAssertions`](https://www.nuget.org/packages/SseAssertions/) | Framework-agnostic core: `SseEvent` record, `SseFrameParser`, `SseFailureMessage`, `SseCountComparison`, `SseFormat` | BCL only |
-| [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) | TUnit adapter: `HasSseEvent` chain on `string`, `Stream`, and `HttpResponseMessage`, plus `IsServerSentEventsStream()` discriminator | `SseAssertions` + `TUnit.Assertions` + `TUnit.Core` |
+| [`SseAssertions`](https://www.nuget.org/packages/SseAssertions/) | Framework-agnostic core: `SseStream` (connect to a live endpoint), `SseEventReader` (read events as they arrive), `SseEvent` record, `SseFrameParser`, `SseFailureMessage`, `SseCountComparison`, `SseFormat` | BCL only |
+| [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) | TUnit adapter: `HasSseEvent` and `HasSseEventIds` chains on `string`, `Stream`, and `HttpResponseMessage`, plus first-event, in-order, retry-directive, and `IsServerSentEventsStream()` checks | `SseAssertions` + `TUnit.Assertions` + `TUnit.Core` |
 
 Install `SseAssertions.TUnit` for TUnit test projects; `SseAssertions` comes
 transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are not
@@ -95,8 +95,8 @@ you need one.
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| Fluent entry points (`HasSseEvent`, `IsServerSentEventsStream`) | `TUnit.Assertions.Extensions` | Yes (TUnit auto-imports) |
-| Core types (`SseEvent`, `SseFrameParser`, `SseFailureMessage`, `SseCountComparison`, `SseFormat`) | `SseAssertions` | No - needs `using SseAssertions;` |
+| Fluent entry points (`HasSseEvent`, `HasSseEventIds`, `IsServerSentEventsStream`, ...) | `TUnit.Assertions.Extensions` | Yes (TUnit auto-imports) |
+| Core types (`SseStream`, `SseEventReader`, `SseEvent`, `SseFrameParser`, `SseFailureMessage`, `SseCountComparison`, `SseFormat`) | `SseAssertions` | No - needs `using SseAssertions;` |
 | Chain assertion class (`SseHasEventAssertion`) | `SseAssertions.TUnit` | No - generally invisible to consumers; only surfaces in failure-message types |
 
 A `GlobalUsings.cs` in your test project:
@@ -133,6 +133,23 @@ public async Task NotificationEndpoint_PublishesTickEveryTwoSeconds(Cancellation
     using var response = await _client.GetAsync("/notifications/ticks?take=3", ct);
 
     await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(3);
+}
+```
+
+**Connect to a live endpoint, trigger, assert:**
+
+```csharp
+[Test]
+public async Task Cycle_PublishesPredictionThenCompletion(CancellationToken ct)
+{
+    // Returns once the endpoint has written its first frame: it has subscribed, so nothing is missed.
+    await using var sse = await SseStream.OpenAsync(_client, new Uri("/cycles/events", UriKind.Relative), ct);
+
+    await _client.PostAsync("/cycles/start", content: null, ct);
+
+    // Each assertion reads only until it is decided, and the next one continues from there.
+    await Assert.That(sse).HasSseEvent("prediction", ct).WithId(id => id is not null);
+    await Assert.That(sse).HasSseEvent("cycleCompleted", ct);
 }
 ```
 
@@ -203,10 +220,13 @@ rule described here.
 
 | Receiver | Entry point | Returns | Chain methods |
 |---|---|---|---|
-| `string` | `.HasSseEvent(eventName)` | `SseHasEventAssertion` (chain) | `WithData(Func<string, bool>)`, `WithDataParsedAs<T>(Func<string, T>, Func<T, bool>)`, `WithId(string)`, `WithRetryMillis(Func<int?, bool>)`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
+| `string` | `.HasSseEvent(eventName)` | `SseHasEventAssertion` (chain) | `WithData(Func<string, bool>)`, `WithDataParsedAs<T>(Func<string, T>, Func<T, bool>)`, `WithId(string)`, `WithId(Func<string?, bool>)`, `WithRetryMillis(Func<int?, bool>)`, `Until(string)`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
 | `string` | `.IsServerSentEventsStream()` | flat - `AssertionResult` | - |
-| `Stream` | `.HasSseEvent(eventName, cancellationToken)` | `SseStreamHasEventAssertion` (chain) | `WithData`, `WithDataParsedAs<T>`, `WithId`, `WithRetryMillis`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
-| `HttpResponseMessage` | `.HasSseEvent(eventName, strictContentType, cancellationToken)` | `SseResponseHasEventAssertion` (chain) | `WithData`, `WithDataParsedAs<T>`, `WithId`, `WithRetryMillis`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
+| `Stream` (incl. `SseStream`) | `.HasSseEvent(eventName, cancellationToken)` | `SseStreamHasEventAssertion` (chain) | `WithData`, `WithDataParsedAs<T>`, `WithId` (both), `WithRetryMillis`, `Until`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
+| `HttpResponseMessage` | `.HasSseEvent(eventName, cancellationToken)` or `.HasSseEvent(eventName, strictContentType, cancellationToken)` | `SseResponseHasEventAssertion` (chain) | `WithData`, `WithDataParsedAs<T>`, `WithId` (both), `WithRetryMillis`, `Until`, `AtLeast(int)`, `AtMost(int)`, `Exactly(int)` |
+| `string` | `.HasSseEventIds()` | `SseEventIdsAssertion` (chain) | `StrictlyIncreasing()`, `Sequential()`, `Sequential(long startingAt)`, `Until(string)` |
+| `Stream` (incl. `SseStream`) | `.HasSseEventIds(cancellationToken)` | `SseStreamEventIdsAssertion` (chain) | `StrictlyIncreasing()`, `Sequential()`, `Sequential(long startingAt)`, `Until(string)` |
+| `HttpResponseMessage` | `.HasSseEventIds(cancellationToken)` or `.HasSseEventIds(strictContentType, cancellationToken)` | `SseResponseEventIdsAssertion` (chain) | `StrictlyIncreasing()`, `Sequential()`, `Sequential(long startingAt)`, `Until(string)` |
 | `HttpResponseMessage` | `.HasSseContentType(strict)` | flat - `AssertionResult` | - |
 | `string` | `.HasFirstSseEvent(eventName)` | flat - `AssertionResult` | - |
 | `Stream` | `.HasFirstSseEvent(eventName, cancellationToken)` | flat - `Task<AssertionResult>` | - |
@@ -228,9 +248,27 @@ rule described here.
 
 The same `HasSseEvent(eventName)` chain is available on all three receivers. On
 the `string` receiver the body is already in memory; on the `Stream` and
-`HttpResponseMessage` receivers the body read happens inside the assertion under
-the supplied cancellation token, and the narrowers and count terminators apply to
-the frames seen within that read.
+`HttpResponseMessage` receivers the body is read event by event inside the
+assertion, and the read stops as soon as the outcome is decided: `AtLeast(n)`
+passes at the n-th match, `AtMost` and `Exactly` fail once the count is exceeded,
+`HasFirstSseEvent` reads one event, `HasSseEventsInOrder` stops once the sequence is
+complete, and `HasSseEventIds` stops at the first violation. `Until(eventName)`
+ends the observation window after the first event of that type, which bounds
+`AtMost`, `Exactly`, and `HasSseEventIds` on an endless stream. Otherwise the read
+runs to the end of the body or until the cancellation token ends it. The
+retry-directive assertions read the whole body, because a bare `retry:` frame
+carries no event; on a live stream, `SseStream.FirstFrame` gives the first
+frame's `retry:` directly. The `string` receiver stops at the same point, so a body
+gives the same verdict on every receiver. Bodies are decoded as UTF-8, as the
+SSE specification requires.
+
+`HasSseEventIds()` asserts that every event carries an `id:` (the property a
+`Last-Event-ID` reconnection relies on); `StrictlyIncreasing()` and
+`Sequential()` add the order of integer ids. Its failure lists the ids seen:
+
+```csharp
+await Assert.That(sse).HasSseEventIds(ct).Sequential(startingAt: 1).Until("cycleCompleted");
+```
 
 ## Failure diagnostics
 
@@ -271,6 +309,14 @@ response carried `application/json`):
 ```text
 the response to have Content-Type "text/event-stream"
   but got: application/json
+```
+
+**`Until` event never arrived** (the token ended the read before the event that
+closes the window; the count itself was met):
+
+```text
+the read to reach an event of type "done", which ends the observation window
+  but the read was canceled after 4 event(s), before one arrived
 ```
 
 **Cancellation cut the read** (the `CancellationToken` fired mid-body-read; the
@@ -333,22 +379,22 @@ public async Task OrderUpdates_StreamHasShippedEventForExpectedOrder(Cancellatio
 `MyJsonContext` is a consumer-defined `[JsonSerializable(typeof(OrderEvent))]`
 context; deserialization stays AOT-clean.
 
-### Pattern 3: Polling with TUnit's built-in `Eventually`
+### Pattern 3: Waiting for an event without polling
 
-For "the endpoint will emit a `cache-ready` event within ten seconds" without a
-fixed `take` query parameter, compose with TUnit's `Eventually`:
+For "the endpoint will emit a `cache-ready` event within ten seconds", open the
+stream and assert on the event itself: the read returns the moment the event
+arrives, and the token bounds the wait. There is no need to poll the endpoint with
+TUnit's `Eventually`.
 
 ```csharp
 [Test]
-public async Task CacheWarmup_EmitsReadyEventWithinTimeout(CancellationToken ct)
+public async Task CacheWarmup_EmitsReadyEvent(CancellationToken ct)
 {
-    await Assert.That(async () =>
-        {
-            using var response = await _client.GetAsync("/cache/status?take=1", ct);
-            return await response.Content.ReadAsStringAsync(ct);
-        })
-        .Eventually(body => Assert.That(body).HasSseEvent("cache-ready").AtLeast(1))
-        .WithinTimeBudget(TimeSpan.FromSeconds(10));
+    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    timeout.CancelAfter(TimeSpan.FromSeconds(10));
+
+    await using var sse = await SseStream.OpenAsync(_client, new Uri("/cache/status", UriKind.Relative), timeout.Token);
+    await Assert.That(sse).HasSseEvent("cache-ready", timeout.Token);
 }
 ```
 
@@ -391,55 +437,40 @@ public static class OrderEventAssertions
 await Assert.That(responseBody).HasOrderShippedFor(orderId: 42);
 ```
 
-### Pattern 5: Testing infinite-stream endpoints (with cancellation-bounded reads)
+### Pattern 5: Testing endpoints that never end
 
-Production SSE endpoints typically stream indefinitely with heartbeats. The
-buffer-mode read works against bounded-output endpoints; for indefinite
-streams you have two approaches:
-
-**(a) Test-mode query parameter** - design the endpoint with a finite-event mode:
-
-```csharp
-// Production: GET /notifications/ticks        -> infinite stream
-// Test mode:  GET /notifications/ticks?take=3 -> emit 3 events then close
-```
-
-**(b) Cancellation-bounded read** - let the test cancel after a known emission
-window. The chain captures the cancellation, parses whatever was buffered before
-the cut, and asserts against the partial result. No try/catch needed; the
-cancellation is part of the chain semantics:
+Production SSE endpoints typically stream indefinitely with heartbeats. Every
+streaming assertion stops reading once its outcome is decided, so most of them
+need nothing special:
 
 ```csharp
 [Test]
-[CancelAfter(2_000)]
-public async Task TickEndpoint_EmitsAtLeastTwoTicksInTwoSeconds(CancellationToken ct)
+public async Task Ticks_ArriveInOrderWithSequentialIds(CancellationToken ct)
 {
-    using var response = await _client.GetAsync("/notifications/ticks", ct);
+    await using var sse = await SseStream.OpenAsync(_client, new Uri("/notifications/ticks", UriKind.Relative), ct);
 
-    await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(2);
+    await Assert.That(sse).HasSseEvent("tick", ct).AtLeast(2);                     // stops at the 2nd tick
+    await Assert.That(sse).HasSseEventIds(ct).Sequential().Until("checkpoint");    // stops at the checkpoint
 }
 ```
 
-The streaming read consumes the full token window: it does not stop early once
-the expectation is already satisfied, so set the token to your intended time
-budget (the `[CancelAfter(2_000)]` above bounds the read to two seconds).
-`AtMost` and `Exactly` necessarily read to the window to confirm no further
-matching frames arrive; a satisfied `AtLeast` waits for it too.
+`AtMost`, `Exactly`, and a passing `HasSseEventIds` need the end of a window to
+decide: give it with `Until(eventName)` (the window ends after that event), or let
+the token end the read. When the token ends the read before the `Until` event, the
+assertion fails naming the event, even if the count was met; without `Until`, the
+events that arrived before the token fired are evaluated.
 
-Pattern (a) is the recommended approach for deterministic tests; pattern (b)
-suits timing-sensitive scenarios where the endpoint cannot be modified. True
-streaming async-enumerable mode is a candidate for a future release.
+Successive assertions on one `SseStream` continue where the previous one stopped.
+To read events yourself, enumerate `sse.ReadEventsAsync(ct)` or use an
+`SseEventReader`; stopping the enumeration leaves the stream at the next event.
+
+A test-mode query parameter (`/notifications/ticks?take=3`, after which the
+endpoint closes) still works and makes the read end with the body.
 
 ## Out of scope
 
 Read this before opening a feature request.
 
-- **Streaming async-enumerable mode.** The assertion reads the entire response body
-  before parsing; this works against bounded-output endpoints (see [Pattern
-  5(a)](#pattern-5-testing-infinite-stream-endpoints-with-cancellation-bounded-reads))
-  and combines with cancellation for indefinite streams (Pattern 5(b)). A
-  true streaming `IAsyncEnumerable<SseEvent>` mode is a candidate for a future
-  release.
 - **`OfType(name)` chain method.** Redundant with `HasSseEvent(name)`.
 - **`InAnyOrder()` chain method.** Set-semantics adds complexity for marginal
   benefit; the dominant pattern is order-insensitive `AtLeast(n)`.
@@ -457,7 +488,9 @@ Read this before opening a feature request.
 - **`minCount` is `.AtLeast(n)`.** The streaming entry methods carry only what must precede the read (`strictContentType`, `cancellationToken`); the count is a terminator like every other receiver, which is why the pre-0.7.0 `HasSseEvent(eventName, minCount, ...)` flat form was replaced.
 - **Content-Type `text/event-stream` validation is on by default.** It catches the foot-gun where a test hits the wrong endpoint and gets HTML / JSON / a 500: without it the parser silently yields zero events and the failure is confusing. Opt out with `strictContentType: false`. Comparison is case-insensitive (RFC 9110).
 - **Caller-supplied deserialization, not `JsonTypeInfo<T>`.** `WithData` takes a `Func<string, bool>` and `WithDataParsedAs<T>` takes a `Func<string, T>` parse delegate, so any deserialization strategy stays at your call site. Neither forces a `System.Text.Json` dependency or an adapter; per the family's cross-package rule the package takes no `JsonAssertions` reference. Supply a source-generated `JsonTypeInfo<T>` inside the delegate to keep parsing AOT-compatible.
-- **Cancellation-bounded reads.** The `Stream` / `HttpResponseMessage` overloads use an `ArrayPool<byte>`-backed read loop rather than `ReadAsStringAsync` (which discards its partial buffer on cancellation); the loop parses whatever bytes arrived as best-effort SSE. Encoding comes from the `Content-Type` charset, UTF-8 fallback.
+- **Incremental reads that stop when decided.** The `Stream` / `HttpResponseMessage` receivers read through `SseEventReader`, which parses events as bytes arrive, so an assertion stops at the event that decides it instead of waiting for the end of the body or the token. Lines are split at the byte level (in UTF-8, `\r` and `\n` never occur inside another character), so the bytes after the last event read stay unread: on an `SseStream`, the next assertion continues exactly there. When the token ends the read, the events that arrived are evaluated, and an unmet expectation reports the cancellation cut. Bodies are decoded as UTF-8, as the SSE specification requires; a `Content-Type` charset is ignored.
+- **`SseStream` is the body stream.** The connect step returns a `Stream`, positioned after the first frame, so every existing streaming assertion applies to it unchanged. A separate receiver type would have duplicated every chain, and asserting on the response after a read would have lost the bytes already consumed.
+- **The token is required where it is the only bound.** `SseStream.OpenAsync` and `SseEventReader.ReadAsync` take a `CancellationToken` without a default: nothing else ends a wait for a frame that never comes.
 
 ## Stability intent (pre-1.0)
 
@@ -475,10 +508,7 @@ The 1.0 milestone signals API stability.
 
 ## Roadmap
 
-- Streaming async-enumerable read of `HttpResponseMessage` for indefinite-stream
-  endpoints; yields `SseEvent` on demand.
-
-Demand-driven; no fixed timeline.
+Nothing planned beyond the current surface; new entry points are demand-driven.
 
 ## Family compatibility
 

@@ -2,8 +2,85 @@
 <!-- https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids -->
 <Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:SseAssertions.SseEventReader</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:SseAssertions.SseStream</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:SseAssertions.SseFailureMessage.EventIdsNotAsExpected(System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String})</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:SseAssertions.SseFailureMessage.IdPredicateNotMatched(System.String,System.Collections.Generic.IReadOnlyList{System.String})</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:SseAssertions.SseFailureMessage.UntilEventNotReached(System.String,System.Int32)</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
     <DiagnosticId>CP0003</DiagnosticId>
-    <Target>SseAssertions, Version=0.6.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Target>SseAssertions, Version=0.7.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0014</DiagnosticId>
+    <Target>M:SseAssertions.SseFormat.LooksLikeServerSentEvents(System.String):[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0014</DiagnosticId>
+    <Target>M:SseAssertions.SseFrameParser.Parse(System.String):[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:SseAssertions.SseFormat:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:SseAssertions.SseFormat:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:SseAssertions.SseFrameParser:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/SseAssertions.dll</Left>
+    <Right>lib/net10.0/SseAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:SseAssertions.SseFrameParser:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.dll</Left>
     <Right>lib/net10.0/SseAssertions.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

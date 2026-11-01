@@ -18,8 +18,9 @@ namespace SseAssertions.TUnit;
 /// <remarks>
 /// The chain runs against the receiver string parsed via <see cref="SseFrameParser.Parse(string)"/>
 /// inside <see cref="CheckAsync"/>; the matching itself is delegated to the shared
-/// <see cref="SseEventMatcher"/> so the <see cref="System.IO.Stream"/> and
-/// <see cref="System.Net.Http.HttpResponseMessage"/> chains produce identically shaped diagnostics.
+/// <see cref="SseEventMatcher"/>, which stops where a streaming read would (for example at the n-th match of
+/// <c>AtLeast(n)</c>), so the <see cref="System.IO.Stream"/> and
+/// <see cref="System.Net.Http.HttpResponseMessage"/> chains give the same verdict and diagnostics.
 /// </remarks>
 [AssertionExtension("HasSseEvent")]
 public sealed class SseHasEventAssertion : Assertion<string>
@@ -27,7 +28,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     private readonly string _eventName;
     private readonly SseEventMatcher _matcher;
 
-    /// <summary>Initialises the assertion. Called by the TUnit source generator.</summary>
+    /// <summary>Initializes the assertion. Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="eventName">The SSE event-type name to look for. Matched case-sensitively
     /// against <see cref="SseEvent.EventName"/>.</param>
@@ -91,7 +92,40 @@ public sealed class SseHasEventAssertion : Assertion<string>
         ArgumentNullException.ThrowIfNull(id);
         _matcher.HasIdFilter = true;
         _matcher.ExpectedId = id;
+        _matcher.IdPredicate = null;
         Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        return this;
+    }
+
+    /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Id"/> satisfies the supplied
+    /// predicate, for example "carries an id, whatever its value" (<c>id =&gt; id is not null</c>).</summary>
+    /// <param name="predicate">The id predicate (<see langword="null"/> for a frame without an <c>id:</c>
+    /// directive); frames for which it returns <see langword="true"/> are counted. Replaces an earlier
+    /// <c>WithId</c>.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is
+    /// <see langword="null"/>.</exception>
+    public SseHasEventAssertion WithId(Func<string?, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        _matcher.HasIdFilter = false;
+        _matcher.IdPredicate = predicate;
+        Context.ExpressionBuilder.Append(".WithId(...)");
+        return this;
+    }
+
+    /// <summary>Ends the observation window after the first event of type <paramref name="eventName"/>: only the
+    /// events up to and including it count. When the body has no such event, the whole body is
+    /// the window.</summary>
+    /// <param name="eventName">The event-type name that ends the window. Matched case-sensitively.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
+    /// <see langword="null"/>.</exception>
+    public SseHasEventAssertion Until(string eventName)
+    {
+        ArgumentNullException.ThrowIfNull(eventName);
+        _matcher.Until = eventName;
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
         return this;
     }
 

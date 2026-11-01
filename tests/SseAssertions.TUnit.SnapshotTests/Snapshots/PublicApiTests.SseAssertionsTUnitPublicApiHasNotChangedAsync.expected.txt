@@ -4,6 +4,17 @@
 [assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
 namespace SseAssertions.TUnit
 {
+    [TUnit.Assertions.Attributes.AssertionExtension("HasSseEventIds")]
+    public sealed class SseEventIdsAssertion : TUnit.Assertions.Core.Assertion<string>
+    {
+        public SseEventIdsAssertion(TUnit.Assertions.Core.AssertionContext<string> context) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<string> metadata) { }
+        protected override string GetExpectation() { }
+        public SseAssertions.TUnit.SseEventIdsAssertion Sequential() { }
+        public SseAssertions.TUnit.SseEventIdsAssertion Sequential(long startingAt) { }
+        public SseAssertions.TUnit.SseEventIdsAssertion StrictlyIncreasing() { }
+        public SseAssertions.TUnit.SseEventIdsAssertion Until(string eventName) { }
+    }
     [TUnit.Assertions.Attributes.AssertionExtension("HasSseEventsInOrder")]
     public sealed class SseEventsInOrderAssertion : TUnit.Assertions.Core.Assertion<string>
     {
@@ -34,22 +45,39 @@ namespace SseAssertions.TUnit
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<string> metadata) { }
         public SseAssertions.TUnit.SseHasEventAssertion Exactly(int count) { }
         protected override string GetExpectation() { }
+        public SseAssertions.TUnit.SseHasEventAssertion Until(string eventName) { }
         public SseAssertions.TUnit.SseHasEventAssertion WithData(System.Func<string, bool> predicate) { }
         public SseAssertions.TUnit.SseHasEventAssertion WithDataParsedAs<T>(System.Func<string, T> parse, System.Func<T, bool> predicate) { }
+        public SseAssertions.TUnit.SseHasEventAssertion WithId(System.Func<string?, bool> predicate) { }
         public SseAssertions.TUnit.SseHasEventAssertion WithId(string id) { }
         public SseAssertions.TUnit.SseHasEventAssertion WithRetryMillis(System.Func<int?, bool> predicate) { }
+    }
+    [TUnit.Assertions.Attributes.AssertionExtension("HasSseEventIds")]
+    public sealed class SseResponseEventIdsAssertion : TUnit.Assertions.Core.Assertion<System.Net.Http.HttpResponseMessage>
+    {
+        public SseResponseEventIdsAssertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, System.Threading.CancellationToken cancellationToken = default) { }
+        public SseResponseEventIdsAssertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, bool strictContentType, System.Threading.CancellationToken cancellationToken = default) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Net.Http.HttpResponseMessage> metadata) { }
+        protected override string GetExpectation() { }
+        public SseAssertions.TUnit.SseResponseEventIdsAssertion Sequential() { }
+        public SseAssertions.TUnit.SseResponseEventIdsAssertion Sequential(long startingAt) { }
+        public SseAssertions.TUnit.SseResponseEventIdsAssertion StrictlyIncreasing() { }
+        public SseAssertions.TUnit.SseResponseEventIdsAssertion Until(string eventName) { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("HasSseEvent")]
     public sealed class SseResponseHasEventAssertion : TUnit.Assertions.Core.Assertion<System.Net.Http.HttpResponseMessage>
     {
-        public SseResponseHasEventAssertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, string eventName, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
+        public SseResponseHasEventAssertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, string eventName, System.Threading.CancellationToken cancellationToken = default) { }
+        public SseResponseHasEventAssertion(TUnit.Assertions.Core.AssertionContext<System.Net.Http.HttpResponseMessage> context, string eventName, bool strictContentType, System.Threading.CancellationToken cancellationToken = default) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion AtLeast(int count) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion AtMost(int count) { }
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Net.Http.HttpResponseMessage> metadata) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion Exactly(int count) { }
         protected override string GetExpectation() { }
+        public SseAssertions.TUnit.SseResponseHasEventAssertion Until(string eventName) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion WithData(System.Func<string, bool> predicate) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion WithDataParsedAs<T>(System.Func<string, T> parse, System.Func<T, bool> predicate) { }
+        public SseAssertions.TUnit.SseResponseHasEventAssertion WithId(System.Func<string?, bool> predicate) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion WithId(string id) { }
         public SseAssertions.TUnit.SseResponseHasEventAssertion WithRetryMillis(System.Func<int?, bool> predicate) { }
     }
@@ -82,6 +110,17 @@ namespace SseAssertions.TUnit
         [TUnit.Assertions.Attributes.GenerateAssertion]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirectiveFirst(this System.Net.Http.HttpResponseMessage response, int millis, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
     }
+    [TUnit.Assertions.Attributes.AssertionExtension("HasSseEventIds")]
+    public sealed class SseStreamEventIdsAssertion : TUnit.Assertions.Core.Assertion<System.IO.Stream>
+    {
+        public SseStreamEventIdsAssertion(TUnit.Assertions.Core.AssertionContext<System.IO.Stream> context, System.Threading.CancellationToken cancellationToken = default) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.IO.Stream> metadata) { }
+        protected override string GetExpectation() { }
+        public SseAssertions.TUnit.SseStreamEventIdsAssertion Sequential() { }
+        public SseAssertions.TUnit.SseStreamEventIdsAssertion Sequential(long startingAt) { }
+        public SseAssertions.TUnit.SseStreamEventIdsAssertion StrictlyIncreasing() { }
+        public SseAssertions.TUnit.SseStreamEventIdsAssertion Until(string eventName) { }
+    }
     [TUnit.Assertions.Attributes.AssertionExtension("HasSseEvent")]
     public sealed class SseStreamHasEventAssertion : TUnit.Assertions.Core.Assertion<System.IO.Stream>
     {
@@ -91,8 +130,10 @@ namespace SseAssertions.TUnit
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.IO.Stream> metadata) { }
         public SseAssertions.TUnit.SseStreamHasEventAssertion Exactly(int count) { }
         protected override string GetExpectation() { }
+        public SseAssertions.TUnit.SseStreamHasEventAssertion Until(string eventName) { }
         public SseAssertions.TUnit.SseStreamHasEventAssertion WithData(System.Func<string, bool> predicate) { }
         public SseAssertions.TUnit.SseStreamHasEventAssertion WithDataParsedAs<T>(System.Func<string, T> parse, System.Func<T, bool> predicate) { }
+        public SseAssertions.TUnit.SseStreamHasEventAssertion WithId(System.Func<string?, bool> predicate) { }
         public SseAssertions.TUnit.SseStreamHasEventAssertion WithId(string id) { }
         public SseAssertions.TUnit.SseStreamHasEventAssertion WithRetryMillis(System.Func<int?, bool> predicate) { }
     }
@@ -141,6 +182,10 @@ namespace TUnit.Assertions.Extensions
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Net.Http.HttpResponseMessage> metadata) { }
         protected override string GetExpectation() { }
     }
+    public static class SseEventIdsAssertionExtensions
+    {
+        public static SseAssertions.TUnit.SseEventIdsAssertion HasSseEventIds(this TUnit.Assertions.Core.IAssertionSource<string> source) { }
+    }
     public static class SseEventsInOrderAssertionExtensions
     {
         public static SseAssertions.TUnit.SseEventsInOrderAssertion HasSseEventsInOrder(this TUnit.Assertions.Core.IAssertionSource<string> source, string[] eventNames, [System.Runtime.CompilerServices.CallerArgumentExpression("eventNames")] string? eventNamesExpression = null) { }
@@ -157,9 +202,18 @@ namespace TUnit.Assertions.Extensions
     {
         public static SseAssertions.TUnit.SseHasEventAssertion HasSseEvent(this TUnit.Assertions.Core.IAssertionSource<string> source, string eventName, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null) { }
     }
+    public static class SseResponseEventIdsAssertionExtensions
+    {
+        public static SseAssertions.TUnit.SseResponseEventIdsAssertion HasSseEventIds<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
+            where TActual : System.Net.Http.HttpResponseMessage { }
+        public static SseAssertions.TUnit.SseResponseEventIdsAssertion HasSseEventIds<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, bool strictContentType, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("strictContentType")] string? strictContentTypeExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
+            where TActual : System.Net.Http.HttpResponseMessage { }
+    }
     public static class SseResponseHasEventAssertionExtensions
     {
-        public static SseAssertions.TUnit.SseResponseHasEventAssertion HasSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("strictContentType")] string? strictContentTypeExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
+        public static SseAssertions.TUnit.SseResponseHasEventAssertion HasSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
+            where TActual : System.Net.Http.HttpResponseMessage { }
+        public static SseAssertions.TUnit.SseResponseHasEventAssertion HasSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, bool strictContentType, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("strictContentType")] string? strictContentTypeExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.Net.Http.HttpResponseMessage { }
     }
     public static class SseStreamAndHttpAssertions
@@ -203,6 +257,11 @@ namespace TUnit.Assertions.Extensions
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.HttpResponseMessage_HasSseRetryDirectiveFirst_Int_Bool_CancellationToken_Assertion HasSseRetryDirectiveFirst<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, int millis, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("millis")] string? millisExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("strictContentType")] string? strictContentTypeExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.Net.Http.HttpResponseMessage { }
+    }
+    public static class SseStreamEventIdsAssertionExtensions
+    {
+        public static SseAssertions.TUnit.SseStreamEventIdsAssertion HasSseEventIds<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
+            where TActual : System.IO.Stream { }
     }
     public static class SseStreamHasEventAssertionExtensions
     {
