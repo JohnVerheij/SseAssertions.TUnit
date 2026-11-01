@@ -49,6 +49,11 @@ indent_size = 2
 # so the newer MA0211 stays off.
 dotnet_diagnostic.MA0211.severity = none
 
+# MA0157 (no Async suffix on a method returning IAsyncEnumerable<T>) directly contradicts MA0156 (Async
+# suffix on such a method), and VSTHRD200 asks for the suffix as well. The BCL convention is the suffix
+# (ChannelReader<T>.ReadAllAsync), so MA0156 and VSTHRD200 stay on and MA0157 stays off.
+dotnet_diagnostic.MA0157.severity = none
+
 # Sort System.* using directives first
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
