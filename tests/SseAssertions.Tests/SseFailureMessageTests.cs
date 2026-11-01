@@ -25,6 +25,17 @@ internal sealed class SseFailureMessageTests
         await Assert.That(message).DoesNotContain("id:");
     }
 
+    /// <summary>The id-predicate message lists each observed id, one per line, with a frame without an
+    /// <c>id:</c> directive shown as absent.</summary>
+    [Test]
+    public async Task IdPredicateNotMatched_ObservedEvents_ListsEachId(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var message = SseFailureMessage.IdPredicateNotMatched("tick", ["7", null]);
+
+        await Assert.That(message).EndsWith("observed 2 event(s) of that type; none carried a matching id:\n    id: \"7\"\n    id: <absent>");
+    }
+
     /// <summary>The new factories reject null arguments.</summary>
     [Test]
     public async Task NewFactories_NullArguments_Throw(CancellationToken ct)

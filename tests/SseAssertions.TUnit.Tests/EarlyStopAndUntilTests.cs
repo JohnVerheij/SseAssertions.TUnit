@@ -221,6 +221,23 @@ internal sealed class EarlyStopAndUntilTests
         await Assert.That(exception!.Message).Contains("the read was canceled after");
     }
 
+    /// <summary>When the token ends the read before the sequence is complete, the failure is the cancellation cut,
+    /// not a missing event.</summary>
+    [Test]
+    public async Task HasSseEventsInOrder_TokenEndsTheReadBeforeTheSequence_ReportsTheCancellationCut(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var cts = new CancellationTokenSource();
+        using var stream = new CancelAtEndStream(Encoding.UTF8.GetBytes("event: a\ndata: 1\n\n"), cts);
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(stream).HasSseEventsInOrder(["a", "b"], cancellationToken: cts.Token);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("the read was canceled after 18 byte(s); parsed 1 event(s)");
+    }
+
     // --- successive assertions on one SseStream ---
 
     /// <summary>Assertions on one <see cref="SseStream"/> continue where the previous one stopped, even when
@@ -319,5 +336,25 @@ internal sealed class EarlyStopAndUntilTests
         response.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("text/event-stream; charset=iso-8859-1");
 
         await Assert.That(response).HasSseEvent("message", cancellationToken).WithData(static data => string.Equals(data, "café", StringComparison.Ordinal));
+    }
+
+    /// <summary>A body that delivers its bytes and then, on the read that would end it, cancels
+    /// <paramref name="source"/>: a token that fires while the reader waits for more data.</summary>
+    /// <param name="bytes">The bytes delivered before the cancellation.</param>
+    /// <param name="source">The token source canceled at the end of the bytes.</param>
+    private sealed class CancelAtEndStream(byte[] bytes, CancellationTokenSource source) : MemoryStream(bytes)
+    {
+        /// <inheritdoc/>
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = await base.ReadAsync(buffer, cancellationToken);
+            if (read > 0)
+            {
+                return read;
+            }
+
+            await source.CancelAsync();
+            throw new OperationCanceledException(source.Token);
+        }
     }
 }

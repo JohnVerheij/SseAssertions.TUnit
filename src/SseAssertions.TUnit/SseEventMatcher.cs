@@ -195,14 +195,16 @@ internal sealed class SseEventMatcher : ISseObserver
             return SseFailureMessage.EventNotFound(_eventName, _observed);
         }
 
-        return (_matchCount is 0 ? DescribeNearMiss() : null)
-            ?? SseFailureMessage.EventCountMismatch(_eventName, ExpectedCount, _matchCount, Comparison);
+        return _matchCount is 0
+            ? DescribeNearMiss()
+            : SseFailureMessage.EventCountMismatch(_eventName, ExpectedCount, _matchCount, Comparison);
     }
 
     /// <summary>Describes why no frame matched, by the first narrower that rejected frames of the requested
-    /// type.</summary>
-    /// <returns>The near-miss diagnostic, or <see langword="null"/> when no narrower rejected a frame.</returns>
-    private string? DescribeNearMiss()
+    /// type. Called only when no frame matched and at least one narrower rejected a frame, so one of the three
+    /// near-miss lists is not empty.</summary>
+    /// <returns>The near-miss diagnostic.</returns>
+    private string DescribeNearMiss()
     {
         if (_dataNearMisses.Count > 0)
         {
@@ -216,9 +218,7 @@ internal sealed class SseEventMatcher : ISseObserver
                 : SseFailureMessage.IdPredicateNotMatched(_eventName, _idNearMisses);
         }
 
-        return _retryNearMisses.Count > 0
-            ? SseFailureMessage.RetryMillisPredicateNotMatched(_eventName, _retryNearMisses)
-            : null;
+        return SseFailureMessage.RetryMillisPredicateNotMatched(_eventName, _retryNearMisses);
     }
 
     private bool CountSatisfiesComparison(int actual)

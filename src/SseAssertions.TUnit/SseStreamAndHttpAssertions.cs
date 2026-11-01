@@ -89,8 +89,8 @@ public static class SseStreamAndHttpAssertions
 
     /// <summary>Asserts the first SSE frame in <paramref name="response"/>'s body has
     /// <c>event:</c> equal to <paramref name="eventName"/>. Unlabeled frames match
-    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. Body is read
-    /// in full before parsing; <paramref name="cancellationToken"/> bounds the read.</summary>
+    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. The read stops
+    /// after the first event; <paramref name="cancellationToken"/> bounds it.</summary>
     /// <param name="response">The HTTP response carrying the SSE body.</param>
     /// <param name="eventName">The event-type name expected on the first frame.</param>
     /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
@@ -128,8 +128,8 @@ public static class SseStreamAndHttpAssertions
 
     /// <summary>Asserts the first SSE frame in <paramref name="stream"/> has <c>event:</c>
     /// equal to <paramref name="eventName"/>. Unlabeled frames match
-    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. The full
-    /// stream is read before parsing; <paramref name="cancellationToken"/> bounds the read.</summary>
+    /// <c>HasFirstSseEvent("message")</c> per the WHATWG default-event-name rule. The read
+    /// stops after the first event; <paramref name="cancellationToken"/> bounds it.</summary>
     /// <param name="stream">The SSE stream.</param>
     /// <param name="eventName">The event-type name expected on the first frame.</param>
     /// <param name="cancellationToken">Flows to the stream read.</param>
@@ -525,7 +525,7 @@ public static class SseStreamAndHttpAssertions
     /// <param name="expectedNames">The event-type names expected in order.</param>
     /// <param name="strict">Whether the names must appear contiguously.</param>
     /// <param name="cancellationToken">The upper bound of the read.</param>
-    /// <returns>The assertion result.</returns>
+    /// <returns>The assertion result; the cancellation-cut diagnostic when the token ends the read first.</returns>
     private static async Task<AssertionResult> EvaluateInOrderAsync(
         Stream stream, IReadOnlyList<string> expectedNames, bool strict, CancellationToken cancellationToken)
     {
@@ -555,7 +555,9 @@ public static class SseStreamAndHttpAssertions
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The token is the upper bound of the read: evaluate what arrived before it.
+            // A complete sequence returned above, so the token cut the read before it was complete.
+            return AssertionResult.Failed(SseFailureMessage.CancellationCutRead(
+                int.CreateSaturating(reader.BytesRead), events.Count, reader.TextExcerpt));
         }
 
         return SseEventsInOrderAssertion.Evaluate(events, expectedNames, strict);
