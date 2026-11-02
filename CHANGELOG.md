@@ -15,9 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-11-01: connect to a live stream, stop reading when decided, assert event ids
+## [0.8.0] - 2026-11-02: connect to a live stream, stop reading when decided, assert event ids
 
-Minor release. `SseStream.OpenAsync` connects to a live endpoint and returns once its first frame has arrived, so a test can trigger events without a sleep and without missing any. Every streaming assertion now reads only until its outcome is decided, `Until(eventName)` ends the observation window at a named event, and `HasSseEventIds()` asserts the id sequence. Two behavior changes and one constructor change, see Changed.
+Minor release. `SseStream.OpenAsync` connects to a live endpoint and returns once its first frame has arrived, so a test can trigger events without a sleep and without missing any. The event assertions now read only until their outcome is decided (the retry-directive assertions still read the whole body), `Until(eventName)` ends the observation window at a named event, and `HasSseEventIds()` asserts the id sequence. Two behavior changes and one constructor change, see Changed.
 
 ### Added
 

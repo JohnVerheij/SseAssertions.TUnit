@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
-TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points over TUnit's `Assert.That(...)` pipeline for asserting on SSE event streams from HTTP response bodies, streams, and strings. For a live endpoint, `SseStream.OpenAsync` returns once the server's first frame has arrived (it has subscribed), so a test can trigger events and assert on them without a sleep; every streaming assertion reads only until its outcome is decided. AOT-compatible, trimmable, no runtime reflection in the assertion path.
+TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points over TUnit's `Assert.That(...)` pipeline for asserting on SSE event streams from HTTP response bodies, streams, and strings. For a live endpoint, `SseStream.OpenAsync` returns once the server's first frame has arrived (it has subscribed), so a test can trigger events and assert on them without a sleep; the event assertions read only until their outcome is decided. AOT-compatible, trimmable, no runtime reflection in the assertion path.
 
 > **Scope:** Test projects only. Not intended for production code.
 
