@@ -15,6 +15,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-02: connect to a live stream, stop reading when decided, assert event ids
+
+Minor release. `SseStream.OpenAsync` connects to a live endpoint and returns once its first frame has arrived, so a test can trigger events without a sleep and without missing any. The event assertions now read only until their outcome is decided (the retry-directive assertions still read the whole body), `Until(eventName)` ends the observation window at a named event, and `HasSseEventIds()` asserts the id sequence. Two behavior changes and one constructor change, see Changed.
+
+### Added
+
+- **`SseStream.OpenAsync(HttpClient client, Uri requestUri, CancellationToken cancellationToken)`** and **`SseStream.OpenAsync(HttpClient client, HttpRequestMessage request, CancellationToken cancellationToken)`** send the request (adding `Accept: text/event-stream` when the request has no `Accept` header), throw `HttpRequestException` on a non-success status and `InvalidOperationException` when the response is not `text/event-stream` or ends before its first frame, and return once the first frame has arrived. An endpoint writes that frame after it has subscribed, so the test can trigger events and none is missed.
+- **`SseStream`** is the response body as a read-only `Stream`, positioned after the first frame: every `Stream` assertion applies to it, and successive assertions continue where the previous one stopped. **`SseStream.FirstFrame`** exposes the first frame (for example its `retry:`), **`SseStream.Response`** the response, and **`SseStream.ReadEventsAsync(CancellationToken)`** enumerates the events that follow as they arrive.
+- **`SseEventReader`** reads events from any `Stream` one at a time as they arrive (**`ReadAsync(CancellationToken)`**), with the rules of `SseFrameParser.Parse`; **`BytesRead`** and **`TextExcerpt`** describe what it read. On an `SseStream`, readers created one after another continue exactly.
+- **`Until(string eventName)`** on the `HasSseEvent` chains (`string`, `Stream`, `HttpResponseMessage`) ends the observation window after the first event of that type, so `AtMost` and `Exactly` decide on a stream that never ends. When the token ends the read before that event, the assertion fails naming it.
+- **`WithId(Func<string?, bool> predicate)`** on the `HasSseEvent` chains counts frames whose id satisfies the predicate, for example "carries an id, whatever its value".
+- **`HasSseEventIds()`** on `string`, `Stream`, and `HttpResponseMessage` asserts that every event carries an `id:`, with **`StrictlyIncreasing()`**, **`Sequential()`**, **`Sequential(long startingAt)`**, and **`Until(string eventName)`**. The failure lists the ids seen.
+- **`HasSseEvent(eventName, cancellationToken)`** on `HttpResponseMessage` takes the token positionally.
+- **`SseFailureMessage.IdPredicateNotMatched`**, **`SseFailureMessage.UntilEventNotReached`**, and **`SseFailureMessage.EventIdsNotAsExpected`** render the new diagnostics.
+
+### Changed
+
+- **BREAKING:** the four-parameter **`SseResponseHasEventAssertion`** constructor takes `strictContentType` without a default, next to a new `(context, eventName, cancellationToken = default)` constructor, so `HasSseEvent("x", cancellationToken: ct)` binds without ambiguity. Calls through `Assert.That(...)` are unaffected; only code that constructs the class directly and omits `strictContentType` must pass it.
+- **`HasSseEvent`**, **`HasFirstSseEvent`**, and **`HasSseEventsInOrder`** on `Stream` and `HttpResponseMessage` read the body event by event and stop as soon as the outcome is decided: `AtLeast(n)` at the n-th match, `AtMost` and `Exactly` once the count is exceeded, `HasFirstSseEvent` after the first event, `HasSseEventsInOrder` once the sequence is complete. Before, they read until the end of the body or until the token ended the read, so an assertion on a stream that never ends took the whole token window. When the token ends the read before the outcome is decided, the failure reports the cancellation cut (bytes read, events parsed, and an excerpt) instead of a missing event. The retry-directive assertions still read the whole body.
+- **`AtLeast(n)`** now passes at the n-th matching frame on every receiver, `string` included, so later frames are not evaluated: a `WithDataParsedAs<T>` parser that would throw on a frame after the n-th match no longer fails the assertion.
+- **`Stream`** and **`HttpResponseMessage`** bodies are decoded as UTF-8, as the SSE specification requires; a `Content-Type` charset is ignored. Before, the response receivers decoded with the declared charset.
+- **`SseFailureMessage.CancellationCutRead`** and **`SseFailureMessage.UncleanCancellation`** spell "canceled" in American English; the cut-read excerpt shows the text the assertion itself read.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.54.0 to 1.77.0.
+
+**Upgrade:** a literal `WithId(null)` no longer compiles, because `WithId` now has two overloads with a reference-type parameter; it never matched a frame anyway. To wait for a live endpoint's subscription, replace a fixed delay before the trigger with `SseStream.OpenAsync`.
+
 ## [0.7.0] - 2026-06-16: unify HasSseEvent into one chain across all three receivers
 
 Minor release. The frame narrowers that the `string` receiver already had (`WithData`, `WithDataParsedAs<T>`, `WithId`, `WithRetryMillis`) now reach the `Stream` and `HttpResponseMessage` receivers, which is the realistic shape for testing a live SSE endpoint: subscribe to an open response, drive activity, and assert per-frame payload under a cancellation-bounded partial read. Achieving this with one coherent `HasSseEvent(eventName)` surface across all three receivers means the flat `HasSseEvent(eventName, minCount, ...)` methods are replaced by the chainable form, which is a breaking change.
@@ -143,7 +169,8 @@ The 0.0.1 scope is intentionally narrow. The release exists to establish the rep
 
 Both namespaces ship in their respective shipped assemblies; both NuGet packages are independently versioned but evolve in lockstep at the v0.x stage.
 
-[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.7.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.0...v0.5.1

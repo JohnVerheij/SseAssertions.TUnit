@@ -18,18 +18,28 @@ namespace SseAssertions
         public string? Id { get; init; }
         public int? RetryMillis { get; init; }
     }
+    public sealed class SseEventReader
+    {
+        public SseEventReader(System.IO.Stream stream) { }
+        public long BytesRead { get; }
+        public string TextExcerpt { get; }
+        public System.Threading.Tasks.ValueTask<SseAssertions.SseEvent?> ReadAsync(System.Threading.CancellationToken cancellationToken) { }
+    }
     public static class SseFailureMessage
     {
         public static string CancellationCutRead(int bytesReceived, int eventsParsed, string partialBodyExcerpt) { }
         public static string DataDeserializationFailed(string eventName, string data, System.Exception inner) { }
         public static string DataPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<string> dataValues) { }
         public static string EventCountMismatch(string eventName, int expected, int actual, SseAssertions.SseCountComparison comparison) { }
+        public static string EventIdsNotAsExpected(string expectation, string violation, System.Collections.Generic.IReadOnlyList<string?> ids) { }
         public static string EventNotFound(string eventName, System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> available) { }
         public static string IdNotMatched(string eventName, string expectedId, System.Collections.Generic.IReadOnlyList<string?> idValues) { }
+        public static string IdPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<string?> idValues) { }
         public static string ParseFailure(string body) { }
         public static string RetryMillisPredicateNotMatched(string eventName, System.Collections.Generic.IReadOnlyList<int?> retryValues) { }
         public static string UncleanCancellation(System.Exception exception) { }
         public static string UnexpectedContentType(string? actualContentType) { }
+        public static string UntilEventNotReached(string untilEventName, int eventsRead) { }
     }
     public static class SseFormat
     {
@@ -38,5 +48,28 @@ namespace SseAssertions
     public static class SseFrameParser
     {
         public static System.Collections.Generic.IReadOnlyList<SseAssertions.SseEvent> Parse(string body) { }
+    }
+    public sealed class SseStream : System.IO.Stream
+    {
+        public override bool CanRead { get; }
+        public override bool CanSeek { get; }
+        public override bool CanWrite { get; }
+        public SseAssertions.SseEvent FirstFrame { get; }
+        public override long Length { get; }
+        public override long Position { get; set; }
+        public System.Net.Http.HttpResponseMessage Response { get; }
+        protected override void Dispose(bool disposing) { }
+        public override void Flush() { }
+        public override int Read(System.Span<byte> buffer) { }
+        public override int Read(byte[] buffer, int offset, int count) { }
+        public override System.Threading.Tasks.ValueTask<int> ReadAsync(System.Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default) { }
+        public override System.Threading.Tasks.Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken) { }
+        [System.Runtime.CompilerServices.AsyncIteratorStateMachine(typeof(SseAssertions.SseStream.<ReadEventsAsync>d__25))]
+        public System.Collections.Generic.IAsyncEnumerable<SseAssertions.SseEvent> ReadEventsAsync([System.Runtime.CompilerServices.EnumeratorCancellation] System.Threading.CancellationToken cancellationToken = default) { }
+        public override long Seek(long offset, System.IO.SeekOrigin origin) { }
+        public override void SetLength(long value) { }
+        public override void Write(byte[] buffer, int offset, int count) { }
+        public static System.Threading.Tasks.Task<SseAssertions.SseStream> OpenAsync(System.Net.Http.HttpClient client, System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken) { }
+        public static System.Threading.Tasks.Task<SseAssertions.SseStream> OpenAsync(System.Net.Http.HttpClient client, System.Uri requestUri, System.Threading.CancellationToken cancellationToken) { }
     }
 }

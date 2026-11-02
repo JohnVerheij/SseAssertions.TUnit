@@ -176,7 +176,7 @@ internal sealed class SseStreamingNarrowerTests
                 .AtLeast(50);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("cancelled");
+        await Assert.That(ex!.Message).Contains("canceled");
         await Assert.That(ex.Message).Contains("partial buffer");
     }
 

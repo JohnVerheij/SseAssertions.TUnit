@@ -12,21 +12,22 @@ namespace SseAssertions.TUnit;
 /// <summary>
 /// Fluent TUnit assertion that reads a Server-Sent Events <see cref="HttpResponseMessage"/> body and
 /// verifies the presence (or count) of frames matching a given event-type name. Constructed by the
-/// TUnit source generator from the <c>HasSseEvent(string, bool, CancellationToken)</c> extension on
+/// TUnit source generator from the <c>HasSseEvent(string, CancellationToken)</c> and
+/// <c>HasSseEvent(string, bool, CancellationToken)</c> extensions on
 /// <see cref="HttpResponseMessage"/>; the narrower methods (<c>WithData</c>,
 /// <c>WithDataParsedAs&lt;T&gt;</c>, <c>WithId</c>, <c>WithRetryMillis</c>) constrain which frames
 /// count and the count terminators (<c>AtLeast</c>, <c>AtMost</c>, <c>Exactly</c>) close the
 /// assertion.
 /// </summary>
 /// <remarks>
-/// The body is drained inside <see cref="CheckAsync"/> via <see cref="SseStreamReader.ReadAsync"/>
-/// using the response charset (UTF-8 fallback), bounded by the supplied
-/// <see cref="CancellationToken"/>; matching is delegated to the shared <see cref="SseEventMatcher"/>.
-/// When <c>strictContentType</c> is set (the default) a non-<c>text/event-stream</c> response fails
-/// with the unexpected-content-type diagnostic before the body is read. When the token cuts the read
-/// short and the expectation is unmet, the cancellation-truncated diagnostic takes precedence. The
-/// read consumes the full token window and does not stop early once the expectation is satisfied, so
-/// the token should be set to the intended time budget.
+/// The body is read event by event inside <see cref="CheckAsync"/> (UTF-8, as the SSE specification
+/// requires), and the read stops as soon as the outcome is decided: <c>AtLeast(n)</c> passes at the n-th
+/// match, <c>AtMost</c> and <c>Exactly</c> fail once the count is exceeded, and <c>Until</c> ends the window at a
+/// named event. Otherwise the read runs to the end of the body or until the supplied
+/// <see cref="CancellationToken"/> ends it. Matching is delegated to the shared <see cref="SseEventMatcher"/>.
+/// When <c>strictContentType</c> is set (the default) a non-<c>text/event-stream</c> response fails with the
+/// unexpected-content-type diagnostic before the body is read. When the token ends the read and the expectation
+/// is unmet, the cancellation-truncated diagnostic takes precedence.
 /// </remarks>
 [AssertionExtension("HasSseEvent")]
 public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage>
@@ -38,21 +39,21 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
     private readonly bool _strictContentType;
     private readonly CancellationToken _cancellationToken;
 
-    /// <summary>Initialises the assertion. Called by the TUnit source generator.</summary>
+    /// <summary>Initializes the assertion. Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="eventName">The SSE event-type name to look for. Matched case-sensitively
     /// against <see cref="SseEvent.EventName"/>.</param>
-    /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
-    /// fails if the response <c>Content-Type</c> media type is not <c>text/event-stream</c>. Set to
-    /// <see langword="false"/> for test mocks that serve SSE without the canonical header.</param>
-    /// <param name="cancellationToken">Bounds the response-body read; cancellation parses the
-    /// partial buffer as best-effort SSE.</param>
+    /// <param name="strictContentType">When <see langword="true"/>, the assertion fails if the response
+    /// <c>Content-Type</c> media type is not <c>text/event-stream</c>. Pass <see langword="false"/> for test mocks
+    /// that serve SSE without the canonical header; the overload without this parameter checks it.</param>
+    /// <param name="cancellationToken">The upper bound of the read; its cancellation ends the read and the
+    /// events that arrived are evaluated.</param>
     /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
     /// <see langword="null"/>.</exception>
     public SseResponseHasEventAssertion(
         AssertionContext<HttpResponseMessage> context,
         string eventName,
-        bool strictContentType = true,
+        bool strictContentType,
         CancellationToken cancellationToken = default)
         : base(context)
     {
@@ -62,6 +63,24 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         _strictContentType = strictContentType;
         _cancellationToken = cancellationToken;
         Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEvent({"\""}{eventName}{"\""})");
+    }
+
+    /// <summary>Initializes the assertion with the <c>Content-Type</c> check on, so the token can follow the
+    /// event name positionally: <c>HasSseEvent("tick", cancellationToken)</c>. Called by the TUnit source
+    /// generator.</summary>
+    /// <param name="context">The assertion context supplied by TUnit.</param>
+    /// <param name="eventName">The SSE event-type name to look for. Matched case-sensitively
+    /// against <see cref="SseEvent.EventName"/>.</param>
+    /// <param name="cancellationToken">The upper bound of the read; its cancellation ends the read and the
+    /// events that arrived are evaluated.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
+    /// <see langword="null"/>.</exception>
+    public SseResponseHasEventAssertion(
+        AssertionContext<HttpResponseMessage> context,
+        string eventName,
+        CancellationToken cancellationToken = default)
+        : this(context, eventName, strictContentType: true, cancellationToken)
+    {
     }
 
     /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Data"/> satisfies the
@@ -113,7 +132,42 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         ArgumentNullException.ThrowIfNull(id);
         _matcher.HasIdFilter = true;
         _matcher.ExpectedId = id;
+        _matcher.IdPredicate = null;
         Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        return this;
+    }
+
+    /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Id"/> satisfies the supplied
+    /// predicate, for example "carries an id, whatever its value" (<c>id =&gt; id is not null</c>).</summary>
+    /// <param name="predicate">The id predicate (<see langword="null"/> for a frame without an <c>id:</c>
+    /// directive); frames for which it returns <see langword="true"/> are counted. Replaces an earlier
+    /// <c>WithId</c>.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is
+    /// <see langword="null"/>.</exception>
+    public SseResponseHasEventAssertion WithId(Func<string?, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        _matcher.HasIdFilter = false;
+        _matcher.IdPredicate = predicate;
+        Context.ExpressionBuilder.Append(".WithId(...)");
+        return this;
+    }
+
+    /// <summary>Ends the observation window after the first event of type <paramref name="eventName"/>: only the
+    /// events up to and including it count, and the read stops there. On an endless stream this
+    /// bounds <c>AtMost</c> and <c>Exactly</c>, which otherwise read until the token ends the read. When the token
+    /// ends the read before that event arrives, the assertion fails naming it; when the stream ends first, the
+    /// whole stream is the window.</summary>
+    /// <param name="eventName">The event-type name that ends the window. Matched case-sensitively.</param>
+    /// <returns>This assertion for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
+    /// <see langword="null"/>.</exception>
+    public SseResponseHasEventAssertion Until(string eventName)
+    {
+        ArgumentNullException.ThrowIfNull(eventName);
+        _matcher.Until = eventName;
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
         return this;
     }
 
@@ -193,19 +247,19 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
 
         if (_strictContentType)
         {
-            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
             {
                 return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
             }
         }
 
-        // HttpResponseMessage.Content never returns null (the getter coalesces to an empty content),
-        // so the body read is always safe; an empty body parses to zero events and fails with the
-        // event-absent diagnostic, matching an empty stream.
-        var (body, bytesReceived, cancelled) = await SseStreamReader.ReadResponseBodyAsync(
-            response, _cancellationToken).ConfigureAwait(false);
-        return SseStreamEvaluation.Evaluate(_matcher, body, bytesReceived, cancelled);
+        // HttpResponseMessage.Content never returns null (the getter coalesces to an empty content), so the
+        // body read is always safe; an empty body yields no events and fails with the event-absent diagnostic,
+        // matching an empty stream. Acquiring the body stream is not bounded by the token: a cancellation there
+        // would escape the assertion instead of ending the read, which is where the token applies.
+        var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
+        return await SseStreamEvaluation.EvaluateAsync(_matcher, stream, _cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

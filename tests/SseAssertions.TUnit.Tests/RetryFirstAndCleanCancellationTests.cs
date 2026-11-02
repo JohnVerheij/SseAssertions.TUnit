@@ -13,7 +13,7 @@ namespace SseAssertions.TUnit.Tests;
 /// <summary>
 /// End-to-end tests for the v0.3.0 refinements: <c>HasSseRetryDirectiveFirst()</c> (the
 /// <c>retry:</c> directive precedes the first data event) across the string / stream / HTTP
-/// receivers, and <c>EndsCleanlyOnCancellation()</c> (a cancelled read tears down via cooperative
+/// receivers, and <c>EndsCleanlyOnCancellation()</c> (a canceled read tears down via cooperative
 /// cancellation, not a transport exception).
 /// </summary>
 [Category("Smoke")]

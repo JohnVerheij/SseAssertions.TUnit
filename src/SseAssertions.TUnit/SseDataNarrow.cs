@@ -3,11 +3,11 @@ using System;
 namespace SseAssertions.TUnit;
 
 /// <summary>
-/// Builds the parsed-data narrowing delegate shared by every <c>HasSseEvent</c> chain. Centralises
+/// Builds the parsed-data narrowing delegate shared by every <c>HasSseEvent</c> chain. Centralizes
 /// the deserialize-then-test step (and the single broad exception handler that turns a deserializer
 /// throw into a <c>DataDeserializationFailed</c> diagnostic) so the <see cref="string"/>,
 /// <see cref="System.IO.Stream"/>, and <see cref="System.Net.Http.HttpResponseMessage"/> chains
-/// stay byte-for-byte identical in behaviour.
+/// stay byte-for-byte identical in behavior.
 /// </summary>
 internal static class SseDataNarrow
 {

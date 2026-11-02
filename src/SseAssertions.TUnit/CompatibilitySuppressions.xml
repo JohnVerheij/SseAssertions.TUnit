@@ -3,161 +3,147 @@
 <Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:SseAssertions.TUnit.SseResponseHasEventAssertion</Target>
+    <Target>T:SseAssertions.TUnit.SseEventIdsAssertion</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:SseAssertions.TUnit.SseStreamHasEventAssertion</Target>
+    <Target>T:SseAssertions.TUnit.SseResponseEventIdsAssertion</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.HttpResponseMessage_HasSseEvent_String_Int_Bool_CancellationToken_Assertion</Target>
+    <Target>T:SseAssertions.TUnit.SseStreamEventIdsAssertion</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.SseResponseHasEventAssertionExtensions</Target>
+    <Target>T:TUnit.Assertions.Extensions.SseEventIdsAssertionExtensions</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.SseStreamHasEventAssertionExtensions</Target>
+    <Target>T:TUnit.Assertions.Extensions.SseResponseEventIdsAssertionExtensions</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.Stream_HasSseEvent_String_Int_CancellationToken_Assertion</Target>
+    <Target>T:TUnit.Assertions.Extensions.SseStreamEventIdsAssertionExtensions</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseEvent(System.IO.Stream,System.String,System.Int32,System.Threading.CancellationToken)</Target>
+    <Target>M:SseAssertions.TUnit.SseHasEventAssertion.Until(System.String)</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseEvent(System.Net.Http.HttpResponseMessage,System.String,System.Int32,System.Boolean,System.Threading.CancellationToken)</Target>
+    <Target>M:SseAssertions.TUnit.SseHasEventAssertion.WithId(System.Func{System.String,System.Boolean})</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TUnit.Assertions.Extensions.SseStreamAndHttpAssertions.HasSseEvent``1(TUnit.Assertions.Core.IAssertionSource{``0},System.String,System.Int32,System.Boolean,System.Threading.CancellationToken,System.String,System.String,System.String,System.String)</Target>
+    <Target>M:SseAssertions.TUnit.SseResponseHasEventAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{System.Net.Http.HttpResponseMessage},System.String,System.Threading.CancellationToken)</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TUnit.Assertions.Extensions.SseStreamAndHttpAssertions.HasSseEvent``1(TUnit.Assertions.Core.IAssertionSource{``0},System.String,System.Int32,System.Threading.CancellationToken,System.String,System.String,System.String)</Target>
+    <Target>M:SseAssertions.TUnit.SseResponseHasEventAssertion.Until(System.String)</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:SseAssertions.TUnit.SseResponseHasEventAssertion.WithId(System.Func{System.String,System.Boolean})</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:SseAssertions.TUnit.SseStreamHasEventAssertion.Until(System.String)</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:SseAssertions.TUnit.SseStreamHasEventAssertion.WithId(System.Func{System.String,System.Boolean})</Target>
+    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.SseResponseHasEventAssertionExtensions.HasSseEvent``1(TUnit.Assertions.Core.IAssertionSource{``0},System.String,System.Threading.CancellationToken,System.String,System.String)</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0003</DiagnosticId>
-    <Target>SseAssertions.TUnit, Version=0.6.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Target>SseAssertions.TUnit, Version=0.7.0.0, Culture=neutral, PublicKeyToken=null</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
+    <DiagnosticId>CP0014</DiagnosticId>
     <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.EndsCleanlyOnCancellation(System.IO.Stream,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.EndsCleanlyOnCancellation(System.Net.Http.HttpResponseMessage,System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
-    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
+    <DiagnosticId>CP0014</DiagnosticId>
     <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasFirstSseEvent(System.IO.Stream,System.String,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasFirstSseEvent(System.Net.Http.HttpResponseMessage,System.String,System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
-    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
+    <DiagnosticId>CP0014</DiagnosticId>
     <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseEventsInOrder(System.IO.Stream,System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseEventsInOrder(System.Net.Http.HttpResponseMessage,System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
+    <DiagnosticId>CP0014</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.SseResponseHasEventAssertionExtensions.HasSseEvent``1(TUnit.Assertions.Core.IAssertionSource{``0},System.String,System.Boolean,System.Threading.CancellationToken,System.String,System.String,System.String):[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseRetryDirective(System.IO.Stream,System.Nullable{System.Int32},System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.SseResponseHasEventAssertionExtensions:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseRetryDirective(System.Net.Http.HttpResponseMessage,System.Nullable{System.Int32},System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
-    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseRetryDirectiveFirst(System.IO.Stream,System.Int32,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
-    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseRetryDirectiveFirst(System.IO.Stream,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
-    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseRetryDirectiveFirst(System.Net.Http.HttpResponseMessage,System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
-    <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:SseAssertions.TUnit.SseStreamAndHttpAssertions.HasSseRetryDirectiveFirst(System.Net.Http.HttpResponseMessage,System.Int32,System.Boolean,System.Threading.CancellationToken):[T:System.Runtime.CompilerServices.AsyncStateMachineAttribute]</Target>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.SseResponseHasEventAssertionExtensions:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
     <Left>lib/net10.0/SseAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/SseAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

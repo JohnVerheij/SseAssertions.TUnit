@@ -43,7 +43,7 @@ internal sealed class SseHasEventStreamTests
     }
 
     [Test]
-    public async Task HasSseEvent_StreamCancelled_PartialBufferStillEvaluated(CancellationToken ct)
+    public async Task HasSseEvent_StreamCanceled_PartialBufferStillEvaluated(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var stream = new BlockingStream(ThreeTicks);
@@ -57,7 +57,7 @@ internal sealed class SseHasEventStreamTests
     }
 
     [Test]
-    public async Task HasSseEvent_StreamCancelled_BelowMinCount_FailsWithCancellationCutRead(CancellationToken ct)
+    public async Task HasSseEvent_StreamCanceled_BelowMinCount_FailsWithCancellationCutRead(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var stream = new BlockingStream(ThreeTicks);
@@ -69,7 +69,7 @@ internal sealed class SseHasEventStreamTests
             await Assert.That(stream).HasSseEvent("tick", cancellationToken: cts.Token).AtLeast(100);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("cancelled");
+        await Assert.That(ex!.Message).Contains("canceled");
         await Assert.That(ex.Message).Contains("partial buffer");
     }
 
