@@ -219,7 +219,7 @@ internal sealed class SseStreamingNarrowerTests
             await Assert.That(response).HasSseEvent("tick", cancellationToken: ct).AtLeast(1);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("but observed: 0");
+        await Assert.That(ex!.Message).Contains("but observed 0 events of type");
     }
 
     [Test]

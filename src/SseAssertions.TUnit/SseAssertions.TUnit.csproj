@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <RootNamespace>SseAssertions.TUnit</RootNamespace>
     <AssemblyName>SseAssertions.TUnit</AssemblyName>
     <IsPublishable>false</IsPublishable>
@@ -14,7 +14,7 @@
     <Version>0.8.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. A single HasSseEvent(eventName) chain on the string, Stream, and HttpResponseMessage receivers with frame narrowers (WithData / WithDataParsedAs&lt;T&gt; / WithId / WithRetryMillis), Until(eventName) windows, and AtLeast / AtMost / Exactly count terminators, plus HasSseEventIds() for the id sequence. The streaming receivers read event by event and stop as soon as the outcome is decided, so they work on endless streams, including an SseStream opened once the endpoint has subscribed; Content-Type: text/event-stream validation is on by default. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
+    <Description>TUnit-native Server-Sent Events (SSE) assertions for .NET tests. A single HasSseEvent(eventName) chain on the string, Stream, and HttpResponseMessage receivers with frame narrowers (WithData / WithDataParsedAs&lt;T&gt; / WithId / WithRetryMillis), Until(eventName) windows, and AtLeast / AtMost / Exactly count terminators, plus HasSseEventIds() for the id sequence and HasSseContentType() on the response and on an open SseStream. The streaming receivers read event by event and stop as soon as the outcome is decided, so they work on endless streams, including an SseStream opened once the endpoint has subscribed; Content-Type: text/event-stream validation is on by default. Builds on the SseAssertions framework-agnostic core. AOT-compatible, trimmable, no runtime reflection in the assertion path.</Description>
     <PackageTags>tunit;assertions;testing;sse;server-sent-events;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://sseassertions.dev</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

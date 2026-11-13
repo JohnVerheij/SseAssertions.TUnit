@@ -10,9 +10,9 @@ namespace SseAssertions.TUnit;
 
 /// <summary>
 /// TUnit-native fluent entry points for asserting on Server-Sent Events streams represented as
-/// text. v0.0.1 ships the <c>IsServerSentEventsStream()</c> discriminator only; the full surface
-/// (HTTP response bodies, streams, per-frame parsing, event-name / id / data assertions) ships
-/// in v0.1.0 once the wire-format parser is in place.
+/// text: the <c>IsServerSentEventsStream()</c> discriminator, the first-event check, and the
+/// retry-directive checks. The <c>HasSseEvent</c> chain and the stream and response receivers live in
+/// <see cref="SseStreamAndHttpAssertions"/> and the chain classes.
 /// </summary>
 /// <remarks>
 /// Source methods carry the <c>[GenerateAssertion]</c> attribute; TUnit's source generator emits
@@ -24,21 +24,20 @@ public static class SseFormatAssertions
     /// <summary>
     /// Asserts that the supplied text has the shape of a Server-Sent Events stream: contains at
     /// least one SSE field marker (<c>event:</c>, <c>data:</c>, <c>id:</c>, or <c>retry:</c>) and
-    /// the frame-separator double newline. The check is intentionally lightweight; structured
-    /// per-frame assertions ship in v0.1.0.
+    /// the frame-separator double newline. The check is intentionally lightweight; use
+    /// <c>HasSseEvent</c> for per-frame assertions.
     /// </summary>
     /// <param name="body">The text to inspect, as the receiver of the fluent assertion.</param>
     /// <returns>A passing assertion when the text looks like an SSE stream; otherwise a failing
     /// assertion identifying the shape mismatch.</returns>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to have the shape of a Server-Sent Events stream")]
     public static AssertionResult IsServerSentEventsStream(this string body)
     {
         ArgumentNullException.ThrowIfNull(body);
         return SseFormat.LooksLikeServerSentEvents(body)
             ? AssertionResult.Passed
             : AssertionResult.Failed(
-                "the value to have the shape of a Server-Sent Events stream\n"
-                + "  but no SSE field marker (event:, data:, id:, retry:) was found before a frame separator (\\n\\n)\n");
+                "no SSE field marker (event:, data:, id:, retry:) was found before a frame separator (\\n\\n)");
     }
 
     /// <summary>Asserts the first SSE frame parsed from <paramref name="body"/> has
@@ -50,7 +49,7 @@ public static class SseFormatAssertions
     /// assertion naming the observed first event or reporting "no events".</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> or
     /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to have the first event named '{eventName}'")]
     public static AssertionResult HasFirstSseEvent(this string body, string eventName)
     {
         ArgumentNullException.ThrowIfNull(body);
@@ -64,55 +63,51 @@ public static class SseFormatAssertions
     {
         if (events.Count is 0)
         {
-            return AssertionResult.Failed(string.Concat(
-                "the first event to be \"",
-                expectedEventName,
-                "\"\n  but the stream contained no events"));
+            return AssertionResult.Failed("the stream contained no events");
         }
 
         var actualFirst = events[0].EventName;
         return string.Equals(actualFirst, expectedEventName, StringComparison.Ordinal)
             ? AssertionResult.Passed
-            : AssertionResult.Failed(string.Concat(
-                "the first event to be \"",
-                expectedEventName,
-                "\"\n  but the first event was \"",
-                actualFirst,
-                "\""));
+            : AssertionResult.Failed(string.Concat("the first event was \"", actualFirst, "\""));
     }
 
     /// <summary>Asserts the SSE stream parsed from <paramref name="body"/> contains a
     /// <c>retry:</c> directive. When <paramref name="millis"/> is supplied, requires at least one
-    /// frame whose <c>retry:</c> value equals it; when <see langword="null"/>, any non-null
-    /// <c>retry:</c> value passes.</summary>
+    /// <c>retry:</c> field whose value equals it, in any frame (also one without <c>data:</c>, which is no
+    /// event); when <see langword="null"/>, any valid <c>retry:</c> value passes.</summary>
     /// <param name="body">The SSE wire-format body to inspect.</param>
     /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
     /// <see langword="null"/> to accept any value.</param>
     /// <returns>A passing assertion when a matching <c>retry:</c> directive is found; otherwise a
     /// failing assertion describing what was observed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to contain a retry directive")]
     public static AssertionResult HasSseRetryDirective(this string body, int? millis = null)
     {
         ArgumentNullException.ThrowIfNull(body);
 
-        var events = SseFrameParser.Parse(body);
-        return EvaluateRetryDirective(events, millis);
+        return EvaluateRetryDirective(body, millis);
     }
 
-    internal static AssertionResult EvaluateRetryDirective(IReadOnlyList<SseEvent> events, int? expectedMillis)
+    /// <summary>Evaluates the <c>retry:</c> directives of a body. The wire-level fields are read, not the dispatched
+    /// events: a frame without a <c>data:</c> line is never dispatched, yet a browser applies its <c>retry:</c>
+    /// field, and a server commonly sends the directive in such a frame at the start of the stream.</summary>
+    /// <param name="body">The SSE body.</param>
+    /// <param name="expectedMillis">The required value, or <see langword="null"/> when any value passes.</param>
+    /// <returns>The assertion result.</returns>
+    internal static AssertionResult EvaluateRetryDirective(string body, int? expectedMillis)
     {
         var observedValues = new List<int>();
-        for (var i = 0; i < events.Count; i++)
+        foreach (var line in SplitFieldLines(body))
         {
-            var retry = events[i].RetryMillis;
-            if (retry is null)
+            if (!IsField(line, "retry") || ParseRetryValue(line) is not { } retry)
             {
                 continue;
             }
 
-            observedValues.Add(retry.Value);
-            if (expectedMillis is null || retry.Value == expectedMillis.Value)
+            observedValues.Add(retry);
+            if (expectedMillis is null || retry == expectedMillis.Value)
             {
                 return AssertionResult.Passed;
             }
@@ -127,21 +122,12 @@ public static class SseFormatAssertions
     /// <returns>The failure message.</returns>
     private static string DescribeRetryDirectiveMiss(int? expectedMillis, List<int> observedValues)
     {
-        if (expectedMillis is not { } expected)
-        {
-            return "the stream to contain a \"retry:\" directive\n  but no frame carried a retry value";
-        }
-
-        var head = string.Concat(
-            "the stream to contain a \"retry: ",
-            expected.ToString(CultureInfo.InvariantCulture),
-            "\" directive\n  but ");
         if (observedValues.Count is 0)
         {
-            return head + "no frame carried a retry value";
+            return "no retry directive was found";
         }
 
-        var sb = new StringBuilder(head).Append("observed retry value(s): ");
+        var sb = new StringBuilder("observed retry value(s): ");
         for (var i = 0; i < observedValues.Count; i++)
         {
             if (i > 0)
@@ -152,7 +138,7 @@ public static class SseFormatAssertions
             sb.Append(observedValues[i].ToString(CultureInfo.InvariantCulture));
         }
 
-        return sb.ToString();
+        return sb.Append(", none equal to ").Append(expectedMillis.GetValueOrDefault().ToString(CultureInfo.InvariantCulture)).ToString();
     }
 
     /// <summary>Asserts the SSE stream parsed from <paramref name="body"/> sends a <c>retry:</c>
@@ -166,7 +152,7 @@ public static class SseFormatAssertions
     /// <returns>A passing assertion when a <c>retry:</c> directive precedes the first data event;
     /// otherwise a failing assertion (no retry directive at all, or a data event came first).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to send a retry directive before any data")]
     public static AssertionResult HasSseRetryDirectiveFirst(this string body)
     {
         ArgumentNullException.ThrowIfNull(body);
@@ -184,7 +170,7 @@ public static class SseFormatAssertions
     /// otherwise a failing assertion (no retry directive, a data event came first, or the leading
     /// directive carried a different value).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to send a retry directive of {millis} ms before any data")]
     public static AssertionResult HasSseRetryDirectiveFirst(this string body, int millis)
     {
         ArgumentNullException.ThrowIfNull(body);
@@ -245,14 +231,12 @@ public static class SseFormatAssertions
         var (firstRetry, firstData) = FindFirstRetryAndData(lines);
         if (firstRetry < 0)
         {
-            return AssertionResult.Failed(
-                "the stream to send a retry directive before any data\n  but no retry directive was found");
+            return AssertionResult.Failed("no retry directive was found");
         }
 
         if (firstData >= 0 && firstData < firstRetry)
         {
-            return AssertionResult.Failed(
-                "the stream to send a retry directive before any data\n  but a data field appeared before the first retry directive");
+            return AssertionResult.Failed("a data field appeared before the first retry directive");
         }
 
         if (expectedMillis is int expected
@@ -279,9 +263,7 @@ public static class SseFormatAssertions
         }
 
         return AssertionResult.Failed(string.Concat(
-            "the stream to send a \"retry: ",
-            expected.ToString(CultureInfo.InvariantCulture),
-            "\" directive before any data\n  but the leading retry directive was ",
+            "the leading retry directive was ",
             actual is null
                 ? "unparseable"
                 : string.Concat("\"retry: ", actual.Value.ToString(CultureInfo.InvariantCulture), "\"")));

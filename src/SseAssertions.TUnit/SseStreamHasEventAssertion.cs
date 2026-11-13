@@ -50,7 +50,6 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
         _eventName = eventName;
         _matcher = new SseEventMatcher(eventName);
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEvent({"\""}{eventName}{"\""})");
     }
 
     /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Data"/> satisfies the
@@ -220,5 +219,5 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
 
     /// <inheritdoc/>
     protected override string GetExpectation()
-        => SseExpectation.Describe(_eventName, _matcher.Comparison, _matcher.ExpectedCount);
+        => SseExpectation.Describe(_eventName, _matcher);
 }

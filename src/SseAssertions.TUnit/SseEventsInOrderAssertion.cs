@@ -43,7 +43,6 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
     {
         ArgumentNullException.ThrowIfNull(eventNames);
         _expectedEventNames = eventNames;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEventsInOrder({FormatNameList(eventNames)})");
     }
 
     /// <summary>Tightens the assertion to require the named events to appear contiguously, with
@@ -119,9 +118,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
                 var predecessor = expectedNames[k - 1];
                 var predIdx = searchStart - 1;
                 return AssertionResult.Failed(string.Concat(
-                    "expected events [",
-                    FormatNameList(expectedNames),
-                    "] in order, but \"",
+                    "\"",
                     name,
                     "\" (index ",
                     earlierIdx.ToString(CultureInfo.InvariantCulture),
@@ -133,9 +130,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             }
 
             return AssertionResult.Failed(string.Concat(
-                "expected events [",
-                FormatNameList(expectedNames),
-                "] in order, but \"",
+                "\"",
                 name,
                 "\" was not in the stream"));
         }
@@ -148,9 +143,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         if (events.Count < expectedNames.Count)
         {
             return AssertionResult.Failed(string.Concat(
-                "expected events [",
-                FormatNameList(expectedNames),
-                "] contiguously, but the stream had only ",
+                "the stream had only ",
                 events.Count.ToString(CultureInfo.InvariantCulture),
                 " event(s)"));
         }
@@ -187,7 +180,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             {
                 if (!string.Equals(events[start + k].EventName, expectedNames[k], StringComparison.Ordinal))
                 {
-                    return FailWithMismatch(expectedNames, events[start + k].EventName, start + k, expectedNames[k]);
+                    return FailWithMismatch(events[start + k].EventName, start + k, expectedNames[k]);
                 }
 
                 matchedLength++;
@@ -205,11 +198,9 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             : FailWithFirstNameNotInStream(expectedNames);
     }
 
-    private static AssertionResult FailWithMismatch(IReadOnlyList<string> expectedNames, string actualName, int actualIndex, string expectedName)
+    private static AssertionResult FailWithMismatch(string actualName, int actualIndex, string expectedName)
         => AssertionResult.Failed(string.Concat(
-            "expected events [",
-            FormatNameList(expectedNames),
-            "] contiguously, but \"",
+            "\"",
             actualName,
             "\" appeared at index ",
             actualIndex.ToString(CultureInfo.InvariantCulture),
@@ -225,9 +216,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             matchedPrefix[i] = expectedNames[i];
         }
         return AssertionResult.Failed(string.Concat(
-            "expected events [",
-            FormatNameList(expectedNames),
-            "] contiguously, but the stream ended after matching prefix [",
+            "the stream ended after matching prefix [",
             FormatNameList(matchedPrefix),
             "] starting at index ",
             prefixStart.ToString(CultureInfo.InvariantCulture)));
@@ -235,9 +224,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
 
     private static AssertionResult FailWithFirstNameNotInStream(IReadOnlyList<string> expectedNames)
         => AssertionResult.Failed(string.Concat(
-            "expected events [",
-            FormatNameList(expectedNames),
-            "] contiguously, but \"",
+            "\"",
             expectedNames[0],
             "\" was not in the stream"));
 
@@ -265,22 +252,5 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         return -1;
     }
 
-    private static string FormatNameList(IReadOnlyList<string> names)
-    {
-        if (names.Count is 0)
-        {
-            return string.Empty;
-        }
-
-        var sb = new StringBuilder();
-        for (var i = 0; i < names.Count; i++)
-        {
-            if (i > 0)
-            {
-                sb.Append(", ");
-            }
-            sb.Append(names[i]);
-        }
-        return sb.ToString();
-    }
+    private static string FormatNameList(string[] names) => string.Join(", ", names);
 }

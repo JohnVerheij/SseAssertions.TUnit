@@ -25,7 +25,6 @@ namespace SseAssertions.TUnit;
 [AssertionExtension("HasSseEventIds")]
 public sealed class SseResponseEventIdsAssertion : Assertion<HttpResponseMessage>
 {
-    private const string SseMediaType = "text/event-stream";
 
     private readonly SseEventIdsMatcher _matcher = new();
     private readonly bool _strictContentType;
@@ -56,7 +55,6 @@ public sealed class SseResponseEventIdsAssertion : Assertion<HttpResponseMessage
     {
         _strictContentType = strictContentType;
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(".HasSseEventIds()");
     }
 
     /// <summary>Requires the ids to be integers, each greater than the one before.</summary>
@@ -122,13 +120,9 @@ public sealed class SseResponseEventIdsAssertion : Assertion<HttpResponseMessage
             return AssertionResult.Failed("the receiver was null");
         }
 
-        if (_strictContentType)
+        if (SseContentTypeCheck.Validate(response, _strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);

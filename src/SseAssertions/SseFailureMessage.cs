@@ -6,12 +6,18 @@ using System.Text;
 namespace SseAssertions;
 
 /// <summary>
-/// Curated factory methods for SSE assertion failure messages. Exposed as the v0.1.0+ extension
+/// Curated factory methods for SSE assertion failure messages. Exposed as the extension
 /// point for consumer-authored typed SSE assertions: a consumer who writes their own
 /// <c>[GenerateAssertion]</c>-tagged extension can compose these factories to produce failure
 /// messages whose shape matches the shipped chain terminators.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Every factory returns only the text that follows <c>but</c> in TUnit's failure output: what was
+/// found, never what was expected. The expectation line (<c>Expected ...</c>) comes from the assertion's
+/// own <c>ExpectationMessage</c> or <c>GetExpectation()</c>, so a consumer's assertion states its
+/// expectation there and composes one of these factories for the rest.
+/// </para>
 /// <para>
 /// All factories return culture-invariant strings using <see cref="CultureInfo.InvariantCulture"/>
 /// for any numeric formatting. Truncation rules are consistent across factories:
@@ -44,7 +50,7 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(body);
 
         return string.Concat(
-            "the value to parse as a Server-Sent Events stream\n  but the body could not be parsed as SSE wire format\n  body: ",
+            "the body could not be parsed as SSE wire format\n  body: ",
             TruncateBody(body));
     }
 
@@ -62,9 +68,7 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(available);
 
         var sb = new StringBuilder();
-        sb.Append("to find at least one event of type \"")
-          .Append(eventName)
-          .Append("\"\n  but observed: 0 events of type \"")
+        sb.Append("observed 0 events of type \"")
           .Append(eventName)
           .Append("\" out of ")
           .Append(available.Count.ToString(CultureInfo.InvariantCulture))
@@ -75,32 +79,19 @@ public static class SseFailureMessage
 
     /// <summary>Produces the failure message for an event-count terminator failure.</summary>
     /// <param name="eventName">The event-type name the chain asked for.</param>
-    /// <param name="expected">The expected count (the value passed to the terminator).</param>
+    /// <param name="expected">The expected count (the value passed to the terminator). Not rendered: the assertion's expectation line states it.</param>
     /// <param name="actual">The actual matching-event count observed.</param>
-    /// <param name="comparison">The comparison label the chain used.</param>
-    /// <returns>A failure message describing the count mismatch.</returns>
+    /// <param name="comparison">The comparison the chain used. Not rendered, like <paramref name="expected"/>.</param>
+    /// <returns>A failure message with the observed count.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="eventName"/> is
     /// <see langword="null"/>.</exception>
     public static string EventCountMismatch(string eventName, int expected, int actual, SseCountComparison comparison)
     {
         ArgumentNullException.ThrowIfNull(eventName);
 
-        var label = comparison switch
-        {
-            SseCountComparison.AtLeast => "at least",
-            SseCountComparison.AtMost => "at most",
-            SseCountComparison.Exactly => "exactly",
-            _ => "exactly",
-        };
 
         return string.Concat(
-            "to find ",
-            label,
-            " ",
-            expected.ToString(CultureInfo.InvariantCulture),
-            " event(s) of type \"",
-            eventName,
-            "\"\n  but observed: ",
+            "observed ",
             actual.ToString(CultureInfo.InvariantCulture),
             " event(s) of type \"",
             eventName,
@@ -121,11 +112,11 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(dataValues);
 
         var sb = new StringBuilder();
-        sb.Append("to find at least one event of type \"")
-          .Append(eventName)
-          .Append("\" whose Data satisfied the predicate\n  but observed ")
+        sb.Append("observed ")
           .Append(dataValues.Count.ToString(CultureInfo.InvariantCulture))
-          .Append(" event(s) of that type; none matched");
+          .Append(" event(s) of type \"")
+          .Append(eventName)
+          .Append("\", none whose Data satisfied the predicate");
         if (dataValues.Count > 0)
         {
             sb.Append(":\n");
@@ -162,13 +153,13 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(idValues);
 
         var sb = new StringBuilder();
-        sb.Append("to find at least one event of type \"")
-          .Append(eventName)
-          .Append("\" with id \"")
-          .Append(expectedId)
-          .Append("\"\n  but observed ")
+        sb.Append("observed ")
           .Append(idValues.Count.ToString(CultureInfo.InvariantCulture))
-          .Append(" event(s) of that type; none carried that id");
+          .Append(" event(s) of type \"")
+          .Append(eventName)
+          .Append("\", none with id \"")
+          .Append(expectedId)
+          .Append('"');
         if (idValues.Count > 0)
         {
             sb.Append(":\n");
@@ -202,11 +193,11 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(idValues);
 
         var sb = new StringBuilder();
-        sb.Append("to find at least one event of type \"")
-          .Append(eventName)
-          .Append("\" whose id satisfies the predicate\n  but observed ")
+        sb.Append("observed ")
           .Append(idValues.Count.ToString(CultureInfo.InvariantCulture))
-          .Append(" event(s) of that type; none carried a matching id");
+          .Append(" event(s) of type \"")
+          .Append(eventName)
+          .Append("\", none whose id satisfied the predicate");
         AppendIdLines(sb, idValues);
         return sb.ToString();
     }
@@ -223,21 +214,22 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(untilEventName);
 
         return string.Concat(
-            "the read to reach an event of type \"",
-            untilEventName,
-            "\", which ends the observation window\n  but the read was canceled after ",
+            "the read was canceled after ",
             eventsRead.ToString(CultureInfo.InvariantCulture),
-            " event(s), before one arrived");
+            " event(s), before an event of type \"",
+            untilEventName,
+            "\" arrived to end the observation window");
     }
 
     /// <summary>Produces the failure message for event ids that broke the expected sequence.</summary>
     /// <param name="expectation">What the ids were expected to be, for example "every event to carry an id,
-    /// increasing strictly".</param>
+    /// increasing strictly". Checked for <see langword="null"/> but not rendered: the assertion's own
+    /// expectation line states it.</param>
     /// <param name="violation">What went wrong, for example "event 3 has id \"2\", not greater than \"2\"", or
     /// "no event arrived".</param>
     /// <param name="ids">The ids of the events read, in order (<see langword="null"/> for an event without an
     /// <c>id:</c> directive). The first 20 are listed.</param>
-    /// <returns>A failure message naming the expectation, the violation, and the ids seen.</returns>
+    /// <returns>A failure message naming the violation and the ids seen.</returns>
     /// <exception cref="ArgumentNullException">Any argument is <see langword="null"/>.</exception>
     public static string EventIdsNotAsExpected(string expectation, string violation, IReadOnlyList<string?> ids)
     {
@@ -246,7 +238,7 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(ids);
 
         var sb = new StringBuilder();
-        sb.Append(expectation).Append("\n  but ").Append(violation);
+        sb.Append(violation);
         if (ids.Count is 0)
         {
             return sb.ToString();
@@ -275,7 +267,8 @@ public static class SseFailureMessage
     }
 
     /// <summary>Produces the failure message for an exception thrown by the data deserializer.</summary>
-    /// <param name="eventName">The event-type name the chain asked for.</param>
+    /// <param name="eventName">The event-type name the chain asked for. Checked for <see langword="null"/> but not
+    /// rendered: the assertion's own expectation line names it.</param>
     /// <param name="data">The raw <c>Data</c> value the deserializer was applied to (truncated at
     /// <c>80</c> characters).</param>
     /// <param name="inner">The exception the deserializer threw.</param>
@@ -290,9 +283,7 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(inner);
 
         return string.Concat(
-            "to deserialize Data for event \"",
-            eventName,
-            "\"\n  but the deserializer threw ",
+            "the deserializer threw ",
             inner.GetType().Name,
             ": ",
             inner.Message,
@@ -316,11 +307,11 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(retryValues);
 
         var sb = new StringBuilder();
-        sb.Append("to find at least one event of type \"")
-          .Append(eventName)
-          .Append("\" whose RetryMillis satisfied the predicate\n  but observed ")
+        sb.Append("observed ")
           .Append(retryValues.Count.ToString(CultureInfo.InvariantCulture))
-          .Append(" event(s) of that type; none matched");
+          .Append(" event(s) of type \"")
+          .Append(eventName)
+          .Append("\", none whose RetryMillis satisfied the predicate");
         if (retryValues.Count > 0)
         {
             sb.Append(":\n");
@@ -348,9 +339,9 @@ public static class SseFailureMessage
     /// content type.</returns>
     public static string UnexpectedContentType(string? actualContentType)
     {
-        return string.Concat(
-            "the response to have Content-Type \"text/event-stream\"\n  but got: ",
-            actualContentType ?? "<absent>");
+        return actualContentType is null
+            ? "the response had no Content-Type header (expected \"text/event-stream\")"
+            : string.Concat("the response Content-Type was \"", actualContentType, "\" (expected \"text/event-stream\")");
     }
 
     /// <summary>Produces the failure message for a canceled read whose partial buffer did not
@@ -386,9 +377,9 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(exception);
 
         return string.Concat(
-            "the stream to end cleanly when its read was canceled\n  but a ",
+            "the read threw ",
             exception.GetType().Name,
-            " surfaced instead of cooperative cancellation: ",
+            " instead of ending with cooperative cancellation: ",
             exception.Message);
     }
 

@@ -26,13 +26,14 @@ namespace SseAssertions.TUnit;
 /// <remarks>
 /// <para>Reads: the body is decoded as UTF-8, as the SSE specification requires. <c>HasFirstSseEvent</c> reads
 /// only the first event and <c>HasSseEventsInOrder</c> stops once the sequence is complete; the retry-directive
-/// assertions read the whole body, because a bare <c>retry:</c> frame carries no event (on a live stream, use
-/// <see cref="SseStream.FirstFrame"/>). On an <see cref="SseStream"/> an assertion continues after the last
+/// assertions read the whole body and look at the <c>retry:</c> fields themselves, because a directive can sit in a
+/// frame without <c>data:</c>, which is no event (on a live stream, use <see cref="SseStream.FirstFrame"/>). On an <see cref="SseStream"/> an assertion continues after the last
 /// event the previous one read.</para>
 /// <para>Cancellation semantics: the supplied <see cref="CancellationToken"/> is the upper bound of the read.
 /// If it fires first, the assertion runs against the events that arrived. On chain pass, the assertion passes;
 /// on chain fail, the failure message renders the cancellation-cut-the-read variant
-/// (<see cref="SseFailureMessage.CancellationCutRead(int, int, string)"/>).</para>
+/// (<see cref="SseFailureMessage.CancellationCutRead(int, int, string)"/>). The retry-directive assertions
+/// evaluate the body that arrived without saying the read was cut.</para>
 /// <para>On <see cref="HttpResponseMessage"/>, <c>strictContentType</c> defaults to
 /// <see langword="true"/>: a response without <c>Content-Type: text/event-stream</c> fails with
 /// the <see cref="SseFailureMessage.UnexpectedContentType(string?)"/> diagnostic. Pass
@@ -44,7 +45,6 @@ namespace SseAssertions.TUnit;
     Justification = "These are [GenerateAssertion] source methods: the method name becomes the fluent chain entry point (Assert.That(response).HasSseEvent(...)), so an Async suffix would corrupt the assertion surface.")]
 public static class SseStreamAndHttpAssertions
 {
-    private const string SseMediaType = "text/event-stream";
 
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/>'s <c>Content-Type</c>
     /// header indicates a Server-Sent Events stream. Header-only check; the response body is
@@ -57,34 +57,61 @@ public static class SseStreamAndHttpAssertions
     /// <returns>An assertion that passes when the <c>Content-Type</c> matches per
     /// <paramref name="strict"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to have Content-Type 'text/event-stream' with strict set to {strict}")]
     public static AssertionResult HasSseContentType(
         this HttpResponseMessage response,
         bool strict = false)
     {
         ArgumentNullException.ThrowIfNull(response);
+        return EvaluateContentType(response, strict);
+    }
 
+    /// <summary>Asserts the <see cref="SseStream.Response"/> of an open <see cref="SseStream"/> has a
+    /// <c>Content-Type</c> header that indicates a Server-Sent Events stream, so a test that works with the
+    /// stream keeps one subject instead of switching to <c>sse.Response</c>. Header-only check; the body is not
+    /// read, and the stream keeps its position. Same check and failure text as the
+    /// <see cref="HttpResponseMessage"/> form.</summary>
+    /// <remarks><see cref="SseStream.OpenAsync(HttpClient, Uri, CancellationToken)"/> already throws when the
+    /// response is not <c>text/event-stream</c>, so the default (<paramref name="strict"/> <see langword="false"/>)
+    /// cannot fail on an open stream; only <paramref name="strict"/> <see langword="true"/> adds information.</remarks>
+    /// <param name="stream">The open stream whose response to inspect.</param>
+    /// <param name="strict">When <see langword="false"/> (the default), the media type must be
+    /// <c>text/event-stream</c> (case-insensitive) and parameters such as <c>; charset=utf-8</c> are ignored. When
+    /// <see langword="true"/>, the full <c>Content-Type</c> header must be exactly <c>text/event-stream</c> with
+    /// no parameters.</param>
+    /// <returns>An assertion that passes when the <c>Content-Type</c> matches per
+    /// <paramref name="strict"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion(ExpectationMessage = "to have Content-Type 'text/event-stream' with strict set to {strict}")]
+    public static AssertionResult HasSseContentType(
+        this SseStream stream,
+        bool strict = false)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        return EvaluateContentType(stream.Response, strict);
+    }
+
+    /// <summary>Checks the <c>Content-Type</c> header of <paramref name="response"/> against the SSE media type.</summary>
+    /// <param name="response">The response.</param>
+    /// <param name="strict">Whether the header must carry no parameters.</param>
+    /// <returns>The assertion result.</returns>
+    private static AssertionResult EvaluateContentType(HttpResponseMessage response, bool strict)
+    {
         var contentType = response.Content.Headers.ContentType;
-        var expectedLine = strict
-            ? "the response to have Content-Type exactly \"text/event-stream\""
-            : "the response to have Content-Type starting with \"text/event-stream\"";
-
         if (contentType is null)
         {
-            return AssertionResult.Failed(string.Concat(expectedLine, "\n  but got: <absent>"));
+            return AssertionResult.Failed("the response had no Content-Type header");
         }
 
-        var mediaTypeMatches = string.Equals(contentType.MediaType, SseMediaType, StringComparison.OrdinalIgnoreCase);
-        var passes = strict
-            ? mediaTypeMatches && contentType.Parameters.Count is 0
-            : mediaTypeMatches;
+        if (!string.Equals(contentType.MediaType, SseContentTypeCheck.SseMediaType, StringComparison.OrdinalIgnoreCase))
+        {
+            return AssertionResult.Failed(string.Concat("the Content-Type was \"", contentType.ToString(), "\""));
+        }
 
-        return passes
-            ? AssertionResult.Passed
-            : AssertionResult.Failed(string.Concat(
-                expectedLine,
-                "\n  but got: ",
-                contentType.ToString()));
+        return strict && contentType.Parameters.Count > 0
+            ? AssertionResult.Failed(string.Concat(
+                "the Content-Type was \"", contentType.ToString(), "\", which has parameters that strict mode does not allow"))
+            : AssertionResult.Passed;
     }
 
     /// <summary>Asserts the first SSE frame in <paramref name="response"/>'s body has
@@ -103,7 +130,7 @@ public static class SseStreamAndHttpAssertions
     /// cancellation diagnostic if the read was cut before any frame completed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> or
     /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to have the first event named '{eventName}'")]
     public static async Task<AssertionResult> HasFirstSseEvent(
         this HttpResponseMessage response,
         string eventName,
@@ -113,13 +140,9 @@ public static class SseStreamAndHttpAssertions
         ArgumentNullException.ThrowIfNull(response);
         ArgumentNullException.ThrowIfNull(eventName);
 
-        if (strictContentType)
+        if (SseContentTypeCheck.Validate(response, strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
@@ -138,7 +161,7 @@ public static class SseStreamAndHttpAssertions
     /// diagnostic if the read was cut before any frame completed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
     /// <paramref name="eventName"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to have the first event named '{eventName}'")]
     public static Task<AssertionResult> HasFirstSseEvent(
         this Stream stream, string eventName, CancellationToken cancellationToken = default)
     {
@@ -162,7 +185,7 @@ public static class SseStreamAndHttpAssertions
     /// failing assertion describing the first violation.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> or
     /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to contain the named events in order (strict ordering: {strictOrdering})")]
     public static Task<AssertionResult> HasSseEventsInOrder(
         this Stream stream,
         System.Collections.Generic.IReadOnlyList<string> eventNames,
@@ -191,7 +214,7 @@ public static class SseStreamAndHttpAssertions
     /// failing assertion describing the violation or the unexpected content-type.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> or
     /// <paramref name="eventNames"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to contain the named events in order (strict ordering: {strictOrdering})")]
     public static async Task<AssertionResult> HasSseEventsInOrder(
         this HttpResponseMessage response,
         System.Collections.Generic.IReadOnlyList<string> eventNames,
@@ -202,13 +225,9 @@ public static class SseStreamAndHttpAssertions
         ArgumentNullException.ThrowIfNull(response);
         ArgumentNullException.ThrowIfNull(eventNames);
 
-        if (strictContentType)
+        if (SseContentTypeCheck.Validate(response, strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None).ConfigureAwait(false);
@@ -216,15 +235,16 @@ public static class SseStreamAndHttpAssertions
     }
 
     /// <summary>Asserts the supplied <see cref="Stream"/> contains a <c>retry:</c> directive.
-    /// When <paramref name="millis"/> is supplied, requires at least one frame whose
-    /// <c>retry:</c> value equals it; when <see langword="null"/>, any retry value passes.</summary>
+    /// When <paramref name="millis"/> is supplied, requires at least one <c>retry:</c> field whose
+    /// value equals it, in any frame (also one without <c>data:</c>); when <see langword="null"/>, any retry value
+    /// passes.</summary>
     /// <param name="stream">The SSE stream.</param>
     /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
     /// <see langword="null"/> to accept any value.</param>
     /// <param name="cancellationToken">Flows to the stream read.</param>
     /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to contain a retry directive")]
     public static async Task<AssertionResult> HasSseRetryDirective(
         this Stream stream, int? millis = null, CancellationToken cancellationToken = default)
     {
@@ -232,13 +252,12 @@ public static class SseStreamAndHttpAssertions
 
         var (body, _, _) = await SseStreamReader.ReadAsync(
             stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        var events = SseFrameParser.Parse(body);
-        return SseFormatAssertions.EvaluateRetryDirective(events, millis);
+        return SseFormatAssertions.EvaluateRetryDirective(body, millis);
     }
 
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/> body contains a
     /// <c>retry:</c> directive. When <paramref name="millis"/> is supplied, requires at least one
-    /// frame whose <c>retry:</c> value equals it; when <see langword="null"/>, any retry value
+    /// <c>retry:</c> field whose value equals it, in any frame; when <see langword="null"/>, any retry value
     /// passes.</summary>
     /// <param name="response">The HTTP response carrying the SSE body.</param>
     /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
@@ -250,7 +269,7 @@ public static class SseStreamAndHttpAssertions
     /// fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
     /// is on and the header is wrong.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to contain a retry directive")]
     public static async Task<AssertionResult> HasSseRetryDirective(
         this HttpResponseMessage response,
         int? millis = null,
@@ -259,18 +278,13 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (strictContentType)
+        if (SseContentTypeCheck.Validate(response, strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        var events = SseFrameParser.Parse(body);
-        return SseFormatAssertions.EvaluateRetryDirective(events, millis);
+        return SseFormatAssertions.EvaluateRetryDirective(body, millis);
     }
 
     /// <summary>Asserts the supplied <see cref="Stream"/> sends a <c>retry:</c> directive before
@@ -279,7 +293,7 @@ public static class SseStreamAndHttpAssertions
     /// <param name="cancellationToken">Flows to the stream read.</param>
     /// <returns>An assertion that passes when a <c>retry:</c> directive precedes the first data event.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to send a retry directive before any data")]
     public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
         this Stream stream, CancellationToken cancellationToken = default)
     {
@@ -300,7 +314,7 @@ public static class SseStreamAndHttpAssertions
     /// event, or fails with the unexpected-content-type diagnostic when
     /// <paramref name="strictContentType"/> is on and the header is wrong.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to send a retry directive before any data")]
     public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
         this HttpResponseMessage response,
         bool strictContentType = true,
@@ -308,13 +322,9 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (strictContentType)
+        if (SseContentTypeCheck.Validate(response, strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
@@ -329,7 +339,7 @@ public static class SseStreamAndHttpAssertions
     /// <param name="cancellationToken">Flows to the stream read.</param>
     /// <returns>An assertion that passes when a <c>retry: millis</c> directive precedes the first data event.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to send a retry directive of {millis} ms before any data")]
     public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
         this Stream stream, int millis, CancellationToken cancellationToken = default)
     {
@@ -353,7 +363,7 @@ public static class SseStreamAndHttpAssertions
     /// event, or fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
     /// is on and the header is wrong.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to send a retry directive of {millis} ms before any data")]
     public static async Task<AssertionResult> HasSseRetryDirectiveFirst(
         this HttpResponseMessage response,
         int millis,
@@ -362,13 +372,9 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (strictContentType)
+        if (SseContentTypeCheck.Validate(response, strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
@@ -385,7 +391,7 @@ public static class SseStreamAndHttpAssertions
     /// <returns>A passing assertion when the read ends cleanly; otherwise a failing assertion
     /// naming the transport exception that surfaced.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to end cleanly when its read is canceled")]
     public static Task<AssertionResult> EndsCleanlyOnCancellation(
         this Stream stream, CancellationToken cancellationToken = default)
     {
@@ -409,7 +415,7 @@ public static class SseStreamAndHttpAssertions
     /// naming the transport exception that surfaced, or the unexpected-content-type diagnostic
     /// when <paramref name="strictContentType"/> is on and the header is wrong.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to end cleanly when its read is canceled")]
     public static async Task<AssertionResult> EndsCleanlyOnCancellation(
         this HttpResponseMessage response,
         bool strictContentType = true,
@@ -419,13 +425,9 @@ public static class SseStreamAndHttpAssertions
 
         var content = response.Content;
 
-        if (strictContentType)
+        if (SseContentTypeCheck.Validate(response, strictContentType) is { } wrongContentType)
         {
-            var mediaType = content?.Headers?.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         // Acquire the body stream inside the drain's cancellation classification: a token that
@@ -433,7 +435,7 @@ public static class SseStreamAndHttpAssertions
         // during the read loop, not an exception that escapes the assertion. Content is never null
         // (the getter returns an empty content), so an empty body simply drains to a clean pass.
         return await DrainExpectingCleanCancellationAsync(
-            ct => new ValueTask<Stream>(content!.ReadAsStreamAsync(ct)),
+            ct => new ValueTask<Stream>(content.ReadAsStreamAsync(ct)),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -490,7 +492,7 @@ public static class SseStreamAndHttpAssertions
     /// <returns>The failure message naming the exception type and message.</returns>
     private static string ForeignCancellationMessage(OperationCanceledException exception)
         => string.Concat(
-            "the read to be canceled by the supplied cancellation token\n  but it was canceled by a different token (for example, an HttpClient timeout): ",
+            "the read was canceled by a different token than the supplied one (for example, an HttpClient timeout): ",
             exception.GetType().Name,
             ": ",
             exception.Message);

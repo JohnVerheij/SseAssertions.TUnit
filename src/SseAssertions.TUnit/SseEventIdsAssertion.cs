@@ -28,7 +28,6 @@ public sealed class SseEventIdsAssertion : Assertion<string>
     public SseEventIdsAssertion(AssertionContext<string> context)
         : base(context)
     {
-        Context.ExpressionBuilder.Append(".HasSseEventIds()");
     }
 
     /// <summary>Requires the ids to be integers, each greater than the one before.</summary>

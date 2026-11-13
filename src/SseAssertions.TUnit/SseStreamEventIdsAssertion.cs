@@ -35,7 +35,6 @@ public sealed class SseStreamEventIdsAssertion : Assertion<Stream>
         : base(context)
     {
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(".HasSseEventIds()");
     }
 
     /// <summary>Requires the ids to be integers, each greater than the one before.</summary>

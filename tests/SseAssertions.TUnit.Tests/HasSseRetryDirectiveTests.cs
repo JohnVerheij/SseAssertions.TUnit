@@ -47,7 +47,7 @@ internal sealed class HasSseRetryDirectiveTests
             await Assert.That(WithRetry3000).HasSseRetryDirective(5000);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("\"retry: 5000\"");
+        await Assert.That(ex!.Message).Contains("none equal to 5000");
         await Assert.That(ex.Message).Contains("3000");
     }
 
@@ -60,7 +60,7 @@ internal sealed class HasSseRetryDirectiveTests
             await Assert.That(NoRetry).HasSseRetryDirective();
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("no frame carried a retry value");
+        await Assert.That(ex!.Message).Contains("no retry directive was found");
     }
 
     [Test]
@@ -72,8 +72,7 @@ internal sealed class HasSseRetryDirectiveTests
             await Assert.That(NoRetry).HasSseRetryDirective(5000);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("\"retry: 5000\"");
-        await Assert.That(ex.Message).Contains("no frame carried a retry value");
+        await Assert.That(ex!.Message).Contains("but no retry directive was found");
     }
 
     [Test]
@@ -93,7 +92,7 @@ internal sealed class HasSseRetryDirectiveTests
         }).Throws<AssertionException>();
 
         // The failure message should list both observed values, comma-separated.
-        await Assert.That(ex!.Message).Contains("\"retry: 9999\"");
+        await Assert.That(ex!.Message).Contains("none equal to 9999");
         await Assert.That(ex.Message).Contains("3000");
         await Assert.That(ex.Message).Contains("5000");
         await Assert.That(ex.Message).Contains(", ");
@@ -127,7 +126,7 @@ internal sealed class HasSseRetryDirectiveTests
             await Assert.That(stream).HasSseRetryDirective(cancellationToken: ct);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("no frame carried a retry value");
+        await Assert.That(ex!.Message).Contains("no retry directive was found");
     }
 
     [Test]
@@ -186,5 +185,35 @@ internal sealed class HasSseRetryDirectiveTests
         var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(body)));
         content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    /// <summary>A <c>retry:</c> field in a frame without <c>data:</c> counts: a server commonly opens the stream with
+    /// a bare directive, and a browser applies it. The dispatched events do not carry it, so the assertion reads the
+    /// wire-level fields.</summary>
+    [Test]
+    public async Task BareRetryFrame_CountsOnEveryReceiver(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string body = "retry: 3000\n\nevent: tick\ndata: 1\n\n";
+        using var stream = ToStream(body);
+        using var response = BuildResponse(body, "text/event-stream");
+
+        await Assert.That(body).HasSseRetryDirective(3000);
+        await Assert.That(stream).HasSseRetryDirective(3000, ct);
+        await Assert.That(response).HasSseRetryDirective(3000, cancellationToken: ct);
+    }
+
+    /// <summary>A directive after the data, an invalid value and a field that only starts with "retry" are told apart.</summary>
+    [Test]
+    public async Task RetryFields_ValueRules(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await Assert.That("data: x\nretry:42\n\n").HasSseRetryDirective(42);
+        await Assert.That("data: x\r\nretry: 7\r\n\r\n").HasSseRetryDirective(7);
+        await Assert.That(async () => await Assert.That("data: x\nretry: soon\nretryx: 5\nretry\n\n").HasSseRetryDirective())
+            .Throws<AssertionException>();
+        await Assert.That(async () => await Assert.That(": retry: 5\ndata: x\n\n").HasSseRetryDirective())
+            .Throws<AssertionException>();
     }
 }

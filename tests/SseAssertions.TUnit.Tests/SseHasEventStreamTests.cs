@@ -38,8 +38,8 @@ internal sealed class SseHasEventStreamTests
             await Assert.That(stream).HasSseEvent("tick", cancellationToken: ct).AtLeast(5);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("at least 5");
-        await Assert.That(ex.Message).Contains("but observed: 3");
+        await Assert.That(ex!.Message).Contains("Expected to find at least 5 event(s)");
+        await Assert.That(ex.Message).Contains("but observed 3 event(s)");
     }
 
     [Test]
