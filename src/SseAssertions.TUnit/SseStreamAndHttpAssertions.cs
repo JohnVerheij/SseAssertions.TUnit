@@ -45,7 +45,6 @@ namespace SseAssertions.TUnit;
     Justification = "These are [GenerateAssertion] source methods: the method name becomes the fluent chain entry point (Assert.That(response).HasSseEvent(...)), so an Async suffix would corrupt the assertion surface.")]
 public static class SseStreamAndHttpAssertions
 {
-
     /// <summary>Asserts the supplied <see cref="HttpResponseMessage"/>'s <c>Content-Type</c>
     /// header indicates a Server-Sent Events stream. Header-only check; the response body is
     /// not read. Use this as a lightweight smoke-test discriminator for SSE endpoints.</summary>

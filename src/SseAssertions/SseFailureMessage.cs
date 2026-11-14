@@ -89,7 +89,6 @@ public static class SseFailureMessage
     {
         ArgumentNullException.ThrowIfNull(eventName);
 
-
         return string.Concat(
             "observed ",
             actual.ToString(CultureInfo.InvariantCulture),

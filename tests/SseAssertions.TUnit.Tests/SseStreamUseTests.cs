@@ -153,10 +153,16 @@ internal sealed class SseStreamUseTests
         var (sse, body) = await OpenAsync("retry: 1000\n\n", "text/event-stream", ct);
         await using var stream = sse;
         body.Send("event: tick\nda");
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pending = body.NextPendingRead();
+        var run = Task.Run(
+            async () => await Assert.That(async () => await Assert.That(stream).HasSseEvent("tick", cts.Token)).Throws<AssertionException>(),
+            ct);
 
-        var exception = await Assert.That(async () => await Assert.That(stream).HasSseEvent("tick", cts.Token)).Throws<AssertionException>();
+        // Cancel only once the reader has consumed the 14 bytes and waits for the rest of the frame.
+        await pending;
+        await cts.CancelAsync();
+        var exception = await run;
 
         var message = exception!.Message.ReplaceLineEndings("\n");
         await Assert.That(message[..message.IndexOf("\n\nat Assert.That", StringComparison.Ordinal)]).IsEqualTo(
@@ -176,10 +182,16 @@ internal sealed class SseStreamUseTests
         var (sse, body) = await OpenAsync("retry: 1000\n\n", "text/event-stream", ct);
         await using var stream = sse;
         body.Send("event: a\ndata: 1\n\n");
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pending = body.NextPendingRead();
+        var run = Task.Run(
+            async () => await Assert.That(async () => await Assert.That(stream).HasSseEvent("b", cts.Token)).Throws<AssertionException>(),
+            ct);
 
-        var exception = await Assert.That(async () => await Assert.That(stream).HasSseEvent("b", cts.Token)).Throws<AssertionException>();
+        // Cancel once event "a" is consumed and the reader waits at the frame boundary.
+        await pending;
+        await cts.CancelAsync();
+        var exception = await run;
         body.Send("event: b\ndata: 2\n\n");
 
         await Assert.That(exception!.Message).Contains("canceled after");
@@ -218,7 +230,8 @@ internal sealed class SseStreamUseTests
     public async Task DisposedWhileAReadIsPending_TheReadEnds(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var (stream, _) = await OpenAsync("retry: 1000\n\n", "text/event-stream", ct);
+        var (stream, body) = await OpenAsync("retry: 1000\n\n", "text/event-stream", ct);
+        var readPending = body.NextPendingRead();
         var pending = Task.Run(async () =>
         {
             try
@@ -235,11 +248,12 @@ internal sealed class SseStreamUseTests
                 return e.GetType().Name;
             }
         }, ct);
-        await Task.Delay(50, ct);
 
+        // Dispose only once the read is waiting for data.
+        await readPending;
         await stream.DisposeAsync();
 
-        await Assert.That(await pending).IsNotNull();
+        await Assert.That(await pending).IsIn("ended", nameof(ObjectDisposedException), nameof(OperationCanceledException), nameof(IOException));
     }
 
     [Test]
@@ -328,10 +342,15 @@ internal sealed class SseStreamUseTests
         ct.ThrowIfCancellationRequested();
         using var body = new ScriptedStream();
         body.Send("event: tick\ndata: 1\n\n");
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pending = body.NextPendingRead();
 
-        await Assert.That(body).HasSseEvent("tick", cts.Token).AtMost(5);
+        // Exactly(1) cannot decide before the read ends, so the token ends it; the event that arrived first
+        // meets the expectation. Had the cut preceded the event, the assertion would report the cut instead.
+        var run = Task.Run(async () => await Assert.That(body).HasSseEvent("tick", cts.Token).Exactly(1), ct);
+        await pending;
+        await cts.CancelAsync();
+        await run;
     }
 
     /// <summary>The retry-directive assertions read to the end, or until the token ends the read; what arrived
@@ -345,14 +364,22 @@ internal sealed class SseStreamUseTests
         using var responseBody = new ScriptedStream();
         responseBody.Send("retry: 3000\n\n");
         using var response = StubHandler.Sse(responseBody);
-        using var streamCts = new CancellationTokenSource();
-        streamCts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        using var streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var streamPending = body.NextPendingRead();
 
-        await Assert.That(body).HasSseRetryDirective(3000, streamCts.Token);
+        // Cancel once the read has consumed the directive and waits for more.
+        var streamRun = Task.Run(async () => await Assert.That(body).HasSseRetryDirective(3000, streamCts.Token), ct);
+        await streamPending;
+        await streamCts.CancelAsync();
+        await streamRun;
 
-        using var responseCts = new CancellationTokenSource();
-        responseCts.CancelAfter(TimeSpan.FromMilliseconds(100));
-        await Assert.That(response).HasSseRetryDirective(3000, cancellationToken: responseCts.Token);
+        using var responseCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var responsePending = responseBody.NextPendingRead();
+        var responseRun = Task.Run(
+            async () => await Assert.That(response).HasSseRetryDirective(3000, cancellationToken: responseCts.Token), ct);
+        await responsePending;
+        await responseCts.CancelAsync();
+        await responseRun;
     }
 
     /// <summary>The event enumeration takes the token of the call and the token of <c>WithCancellation</c>

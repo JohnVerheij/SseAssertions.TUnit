@@ -32,7 +32,6 @@ namespace SseAssertions.TUnit;
 [AssertionExtension("HasSseEvent")]
 public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage>
 {
-
     private readonly string _eventName;
     private readonly SseEventMatcher _matcher;
     private readonly bool _strictContentType;

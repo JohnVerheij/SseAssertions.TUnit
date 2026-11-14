@@ -163,18 +163,26 @@ internal sealed class SseStreamingNarrowerTests
     public async Task Stream_CancellationCut_WithNarrower_PrefersCancellationDiagnostic(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        using var stream = new SlowStream(TwoPrices);
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
+        using var stream = new ScriptedStream();
+        stream.Send("event: price\ndata: 10\nid: a\n\n");
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pending = stream.NextPendingRead();
 
-        var ex = await Assert.That(async () =>
-        {
-            // A narrower that can never be satisfied within the truncated read; the cancellation-cut
-            // diagnostic must still take precedence over the narrower miss.
-            await Assert.That(stream).HasSseEvent("price", cancellationToken: cts.Token)
-                .WithId("never")
-                .AtLeast(50);
-        }).Throws<AssertionException>();
+        var run = Task.Run(
+            async () => await Assert.That(async () =>
+            {
+                // A narrower that can never be satisfied within the truncated read; the cancellation-cut
+                // diagnostic must still take precedence over the narrower miss.
+                await Assert.That(stream).HasSseEvent("price", cancellationToken: cts.Token)
+                    .WithId("never")
+                    .AtLeast(50);
+            }).Throws<AssertionException>(),
+            ct);
+
+        // The reader has consumed the first event and now waits for more: cut the read exactly there.
+        await pending;
+        await cts.CancelAsync();
+        var ex = await run;
 
         await Assert.That(ex!.Message).Contains("canceled");
         await Assert.That(ex.Message).Contains("partial buffer");
@@ -253,76 +261,6 @@ internal sealed class SseStreamingNarrowerTests
         var content = new StreamContent(new MemoryStream(bytes));
         content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
-    }
-
-    /// <summary>Emits the body one frame at a time with a sleep between frames so a short
-    /// <c>CancelAfter</c> truncates the read partway through.</summary>
-    private sealed class SlowStream : Stream
-    {
-        private readonly byte[] _buffer;
-        private int _position;
-        private readonly int _chunkSize;
-
-        public SlowStream(string body)
-        {
-            _buffer = Encoding.UTF8.GetBytes(body);
-            _chunkSize = body.IndexOf("\n\n", StringComparison.Ordinal) + 2;
-        }
-
-        public override bool CanRead => true;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => false;
-
-        public override long Length => _buffer.Length;
-
-        public override long Position
-        {
-            get => _position;
-            set => throw new NotSupportedException();
-        }
-
-        public override void Flush()
-        {
-        }
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            if (_position >= _buffer.Length)
-            {
-                return 0;
-            }
-
-            var n = Math.Min(count, Math.Min(_chunkSize, _buffer.Length - _position));
-            Array.Copy(_buffer, _position, buffer, offset, n);
-            _position += n;
-            return n;
-        }
-
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            if (_position >= _buffer.Length)
-            {
-                return 0;
-            }
-
-            if (_position > 0)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
-            }
-
-            var n = Math.Min(buffer.Length, Math.Min(_chunkSize, _buffer.Length - _position));
-            _buffer.AsSpan(_position, n).CopyTo(buffer.Span);
-            _position += n;
-            return n;
-        }
-
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     /// <summary>Throws an <see cref="OperationCanceledException"/> that is not tied to the assertion's

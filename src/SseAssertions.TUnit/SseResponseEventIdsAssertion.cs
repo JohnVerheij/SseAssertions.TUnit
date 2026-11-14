@@ -25,7 +25,6 @@ namespace SseAssertions.TUnit;
 [AssertionExtension("HasSseEventIds")]
 public sealed class SseResponseEventIdsAssertion : Assertion<HttpResponseMessage>
 {
-
     private readonly SseEventIdsMatcher _matcher = new();
     private readonly bool _strictContentType;
     private readonly CancellationToken _cancellationToken;

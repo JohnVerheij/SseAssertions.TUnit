@@ -347,7 +347,7 @@ The excerpt holds the complete lines read; bytes of a line that had not ended
 yet count in the byte total but are not shown. Per-event `Data` is truncated at
 80 characters in the failure list; body excerpts (parse failures and
 cancellation excerpts) are truncated at 256 characters. Truncations use the
-U+2026 ellipsis (`...`).
+U+2026 ellipsis (`…`).
 
 The flat assertions follow the same shape, for example
 `HasFirstSseEvent("other")`:
