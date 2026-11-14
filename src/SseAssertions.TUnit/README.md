@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![Downloads](https://img.shields.io/nuget/dt/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%2011.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet)
 
 > **Scope:** Test projects only. Not intended for production code.
 
@@ -22,14 +22,14 @@ TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points o
 | `HasSseEvent(eventName, cancellationToken)` / `HasSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Same chain; default-on `Content-Type: text/event-stream` validation (v0.7.0+); positional token (v0.8.0+) |
 | `HasSseEventIds()` / `HasSseEventIds(cancellationToken)` | `string` / `Stream` / `HttpResponseMessage` | Every event carries an `id:`; chain with `StrictlyIncreasing()`, `Sequential()`, `Sequential(startingAt)`, `Until(eventName)`. The failure lists the ids seen. (v0.8.0+) |
 | `IsServerSentEventsStream()` | `string` | Lightweight discriminator. |
-| `HasSseContentType(strict)` | `HttpResponseMessage` | Header-only discriminator (no body read). `strict: false` (default) matches `text/event-stream` with any parameters; `strict: true` requires the bare media type with no parameters. |
+| `HasSseContentType(strict)` | `HttpResponseMessage`, `SseStream` | Header-only discriminator (no body read; an `SseStream` keeps its position). `strict: false` (default) matches `text/event-stream` with any parameters; `strict: true` requires the bare media type with no parameters. `SseStream.OpenAsync` already throws on another media type, so on a stream only `strict: true` can fail. |
 | `HasFirstSseEvent(eventName)` | `string` | Asserts the first parsed frame's `event:` name. Unlabeled frames match `HasFirstSseEvent("message")` per the WHATWG default. |
 | `HasFirstSseEvent(eventName, cancellationToken)` | `Stream` | Async; reads the first event only (v0.8.0+; earlier versions read to the end). |
 | `HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then asserts first frame. |
 | `HasSseEventsInOrder(eventNames)` | `string` | Chain with `.WithStrictOrdering()`. Default permits gaps between named events; strict mode requires contiguous appearance. |
 | `HasSseEventsInOrder(eventNames, strictOrdering, cancellationToken)` | `Stream` | Async flat form; the read stops once the sequence is complete (v0.8.0+). `strictOrdering: true` requires contiguous. |
 | `HasSseEventsInOrder(eventNames, strictOrdering, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async flat form with `Content-Type` validation (default-on). |
-| `HasSseRetryDirective(millis)` | `string` | Asserts a `retry:` directive is present. `millis: null` accepts any value; `millis: <n>` requires exact match. |
+| `HasSseRetryDirective(millis)` | `string` | Asserts a `retry:` directive is present, in any frame (also one without `data:`). `millis: null` accepts any value; `millis: <n>` requires exact match. |
 | `HasSseRetryDirective(millis, cancellationToken)` | `Stream` | Async; same shape. |
 | `HasSseRetryDirective(millis, strictContentType, cancellationToken)` | `HttpResponseMessage` | Async; validates `Content-Type` (default-on) then inspects retry directives. |
 | `HasSseRetryDirectiveFirst()` | `string` / `Stream` / `HttpResponseMessage` | Asserts a `retry:` directive precedes the first non-empty `data:` field, checked at the wire-field level. An empty `data:` line carries no payload and does not count, so the standard ASP.NET Core control frame (`event: retry` + empty `data:` + `retry: <ms>`) passes. `Stream` / `HttpResponseMessage` forms take `cancellationToken`; `HttpResponseMessage` takes `strictContentType` (default-on). Matches the `retry:` directive field, not an `event: retry` named event: a stream emitting `event: retry` + `data:` with no `retry:` field fails. (v0.3.0+; empty-`data:` handling v0.4.1+) |
@@ -45,7 +45,7 @@ dotnet add package SseAssertions.TUnit
 
 The framework-agnostic `SseAssertions` core (defining the `SseEvent` public record, `SseFrameParser`, and `SseFailureMessage` factories) comes transitively.
 
-**Requirements:** TUnit 1.83.0 or later, .NET 10. AOT-compatible, trimmable, no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.85.0 or later, .NET 10 or .NET 11. AOT-compatible, trimmable, no runtime reflection in the assertion path.
 
 ## Quick start
 
@@ -80,7 +80,38 @@ public async Task Cycle_PublishesCompletion(CancellationToken ct)
 }
 ```
 
-See the [full README](https://sseassertions.dev) for the Wire-format syntax reference, Failure diagnostics catalog, Cookbook (5 patterns), Design notes, and Out-of-scope caveats.
+**With two subscribers (fan-out):** open one `SseStream` per subscriber, trigger once, and assert each stream on its own; each stream has its own body and position:
+
+```csharp
+[Test]
+public async Task Cycle_ReachesBothSubscribers(CancellationToken ct)
+{
+    var events = new Uri("/cycles/events", UriKind.Relative);
+
+    await using var first = await SseStream.OpenAsync(_client, events, ct);
+    await using var second = await SseStream.OpenAsync(_client, events, ct);
+
+    await _client.PostAsync("/cycles/start", content: null, ct);
+
+    await Assert.That(first).HasSseEvent("cycleCompleted", ct);
+    await Assert.That(second).HasSseEvent("cycleCompleted", ct);
+}
+```
+
+See the [full README](https://sseassertions.dev) for the Wire-format syntax reference, Failure diagnostics catalog, Cookbook (7 patterns, including the two-subscriber pattern and an ASP.NET Core `WebApplicationFactory` endpoint), Design notes, and Out-of-scope caveats.
+
+## Pair with
+
+The same family of assertion packages for TUnit:
+
+- **[`LogAssertions.TUnit`](https://www.nuget.org/packages/LogAssertions.TUnit/)**: fluent log assertions over `FakeLogCollector`.
+- **[`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/)**: `TimeProvider`-aware time assertions.
+- **[`SnapshotAssertions.TUnit`](https://www.nuget.org/packages/SnapshotAssertions.TUnit/)**: text-snapshot assertions.
+- **[`MathAssertions.TUnit`](https://www.nuget.org/packages/MathAssertions.TUnit/)**: tolerance-aware numeric and geometric assertions.
+- **[`JsonAssertions.TUnit`](https://www.nuget.org/packages/JsonAssertions.TUnit/)**: fluent JSON assertions over `System.Text.Json` and HTTP response bodies.
+- **[`GrpcAssertions.TUnit`](https://www.nuget.org/packages/GrpcAssertions.TUnit/)**: fluent gRPC outcome assertions.
+- **[`TracingAssertions.TUnit`](https://www.nuget.org/packages/TracingAssertions.TUnit/)**: fluent OpenTelemetry `Activity` (span) assertions.
+- **[`MetricsAssertions.TUnit`](https://www.nuget.org/packages/MetricsAssertions.TUnit/)**: fluent assertions over `System.Diagnostics.Metrics` instruments.
 
 ## License
 

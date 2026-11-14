@@ -57,8 +57,8 @@ internal sealed class HasSseContentTypeTests
             await Assert.That(response).HasSseContentType();
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("starting with \"text/event-stream\"");
-        await Assert.That(ex.Message).Contains("application/json");
+        await Assert.That(ex!.Message).Contains("Expected to have Content-Type 'text/event-stream' with strict set to False");
+        await Assert.That(ex.Message).Contains("but the Content-Type was \"application/json\"");
     }
 
     [Test]
@@ -72,8 +72,7 @@ internal sealed class HasSseContentTypeTests
             await Assert.That(response).HasSseContentType();
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("<absent>");
-        await Assert.That(ex.Message).Contains("starting with \"text/event-stream\"");
+        await Assert.That(ex!.Message).Contains("but the response had no Content-Type header");
     }
 
     [Test]
@@ -87,7 +86,7 @@ internal sealed class HasSseContentTypeTests
             await Assert.That(response).HasSseContentType();
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("<absent>");
+        await Assert.That(ex!.Message).Contains("but the response had no Content-Type header");
     }
 
     [Test]
@@ -110,7 +109,7 @@ internal sealed class HasSseContentTypeTests
             await Assert.That(response).HasSseContentType(strict: true);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("exactly \"text/event-stream\"");
+        await Assert.That(ex!.Message).Contains("with strict set to True");
         await Assert.That(ex.Message).Contains("charset=utf-8");
     }
 
@@ -134,7 +133,7 @@ internal sealed class HasSseContentTypeTests
             await Assert.That(response).HasSseContentType(strict: true);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("exactly \"text/event-stream\"");
+        await Assert.That(ex!.Message).Contains("with strict set to True");
         await Assert.That(ex.Message).Contains("application/json");
     }
 

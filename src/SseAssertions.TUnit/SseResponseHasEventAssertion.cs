@@ -32,8 +32,6 @@ namespace SseAssertions.TUnit;
 [AssertionExtension("HasSseEvent")]
 public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage>
 {
-    private const string SseMediaType = "text/event-stream";
-
     private readonly string _eventName;
     private readonly SseEventMatcher _matcher;
     private readonly bool _strictContentType;
@@ -62,7 +60,6 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         _matcher = new SseEventMatcher(eventName);
         _strictContentType = strictContentType;
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEvent({"\""}{eventName}{"\""})");
     }
 
     /// <summary>Initializes the assertion with the <c>Content-Type</c> check on, so the token can follow the
@@ -133,7 +130,7 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         _matcher.HasIdFilter = true;
         _matcher.ExpectedId = id;
         _matcher.IdPredicate = null;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{SseText.EscapeLineBreaks(id)}{"\""})");
         return this;
     }
 
@@ -167,7 +164,7 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _matcher.Until = eventName;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{SseText.EscapeLineBreaks(eventName)}{"\""})");
         return this;
     }
 
@@ -235,7 +232,7 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         if (metadata.Exception is not null)
         {
             return AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception);
         }
 
@@ -245,13 +242,9 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
             return AssertionResult.Failed("the receiver was null");
         }
 
-        if (_strictContentType)
+        if (SseContentTypeCheck.Validate(response, _strictContentType) is { } wrongContentType)
         {
-            var mediaType = response.Content.Headers.ContentType?.MediaType;
-            if (!string.Equals(mediaType, SseMediaType, StringComparison.OrdinalIgnoreCase))
-            {
-                return AssertionResult.Failed(SseFailureMessage.UnexpectedContentType(mediaType));
-            }
+            return wrongContentType;
         }
 
         // HttpResponseMessage.Content never returns null (the getter coalesces to an empty content), so the
@@ -264,5 +257,5 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
 
     /// <inheritdoc/>
     protected override string GetExpectation()
-        => SseExpectation.Describe(_eventName, _matcher.Comparison, _matcher.ExpectedCount);
+        => SseExpectation.Describe(_eventName, _matcher);
 }

@@ -33,7 +33,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var message = SseFailureMessage.IdPredicateNotMatched("tick", ["7", null]);
 
-        await Assert.That(message).EndsWith("observed 2 event(s) of that type; none carried a matching id:\n    id: \"7\"\n    id: <absent>");
+        await Assert.That(message).IsEqualTo("observed 2 event(s) of type \"tick\", none whose id satisfied the predicate:\n    id: \"7\"\n    id: <absent>");
     }
 
     /// <summary>The new factories reject null arguments.</summary>
@@ -55,8 +55,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.ParseFailure("event: tick\ndata: 1\n\nnot a valid sse line");
 
-        await Assert.That(msg).Contains("Server-Sent Events stream");
-        await Assert.That(msg).Contains("body: event: tick");
+        await Assert.That(msg).IsEqualTo("the body could not be parsed as SSE wire format\n  body: event: tick\ndata: 1\n\nnot a valid sse line");
     }
 
     [Test]
@@ -140,8 +139,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.EventCountMismatch("tick", expected: 3, actual: 2, SseCountComparison.AtLeast);
 
-        await Assert.That(msg).Contains("at least 3");
-        await Assert.That(msg).Contains("but observed: 2");
+        await Assert.That(msg).IsEqualTo("observed 2 event(s) of type \"tick\"");
     }
 
     [Test]
@@ -150,7 +148,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.EventCountMismatch("tick", expected: 1, actual: 5, SseCountComparison.AtMost);
 
-        await Assert.That(msg).Contains("at most 1");
+        await Assert.That(msg).IsEqualTo("observed 5 event(s) of type \"tick\"");
     }
 
     [Test]
@@ -159,7 +157,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.EventCountMismatch("tick", expected: 2, actual: 3, SseCountComparison.Exactly);
 
-        await Assert.That(msg).Contains("exactly 2");
+        await Assert.That(msg).IsEqualTo("observed 3 event(s) of type \"tick\"");
     }
 
     [Test]
@@ -168,7 +166,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.EventCountMismatch("tick", expected: 2, actual: 3, (SseCountComparison)999);
 
-        await Assert.That(msg).Contains("exactly 2");
+        await Assert.That(msg).IsEqualTo("observed 3 event(s) of type \"tick\"");
     }
 
     [Test]
@@ -229,12 +227,8 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.IdNotMatched("tick", "z", IdValuesSample);
 
-        await Assert.That(msg).Contains("\"tick\"");
-        await Assert.That(msg).Contains("with id \"z\"");
-        await Assert.That(msg).Contains("none carried that id");
-        await Assert.That(msg).Contains("id: \"a\"");
-        await Assert.That(msg).Contains("id: \"b\"");
-        await Assert.That(msg).Contains("id: <absent>");
+        await Assert.That(msg).IsEqualTo(
+            "observed 3 event(s) of type \"tick\", none with id \"z\":\n    id: \"a\"\n    id: \"b\"\n    id: <absent>");
     }
 
     [Test]
@@ -243,8 +237,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.IdNotMatched("tick", "z", Array.Empty<string?>());
 
-        await Assert.That(msg).Contains("none carried that id");
-        await Assert.That(msg.Contains("id: ", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(msg).IsEqualTo("observed 0 event(s) of type \"tick\", none with id \"z\"");
     }
 
     [Test]
@@ -269,9 +262,8 @@ internal sealed class SseFailureMessageTests
 
         var msg = SseFailureMessage.DataDeserializationFailed("order-update", "{\"bad", inner);
 
-        await Assert.That(msg).Contains("InvalidOperationException");
-        await Assert.That(msg).Contains("the json was malformed");
-        await Assert.That(msg).Contains("order-update");
+        await Assert.That(msg).IsEqualTo(
+            "the deserializer threw InvalidOperationException: the json was malformed\n  data: \"{\"bad\"");
     }
 
     [Test]
@@ -321,8 +313,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.UnexpectedContentType("application/json");
 
-        await Assert.That(msg).Contains("\"text/event-stream\"");
-        await Assert.That(msg).Contains("application/json");
+        await Assert.That(msg).IsEqualTo("the response Content-Type was \"application/json\" (expected \"text/event-stream\")");
     }
 
     [Test]
@@ -331,7 +322,7 @@ internal sealed class SseFailureMessageTests
         ct.ThrowIfCancellationRequested();
         var msg = SseFailureMessage.UnexpectedContentType(null);
 
-        await Assert.That(msg).Contains("<absent>");
+        await Assert.That(msg).IsEqualTo("the response had no Content-Type header (expected \"text/event-stream\")");
     }
 
     [Test]
@@ -355,6 +346,51 @@ internal sealed class SseFailureMessageTests
 
         await Assert.That(msg).Contains("…");
         await Assert.That(msg.Contains(longExcerpt, StringComparison.Ordinal)).IsFalse();
+    }
+
+    /// <summary>Every value a factory quotes (names, ids, data, exception messages) stays on its line when it holds
+    /// a CR or LF, so list rows and one-line clauses keep their structure.</summary>
+    [Test]
+    public async Task Factories_EscapeLineBreaksInQuotedValues(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var events = new List<SseEvent> { new("a\nb", "x\r\ny") };
+
+        await Assert.That(SseFailureMessage.EventNotFound("n\nm", events))
+            .IsEqualTo("observed 0 events of type \"n\\nm\" out of 1 total event(s) captured:\n    [0] event=a\\nb data=\"x\\r\\ny\"");
+        await Assert.That(SseFailureMessage.EventCountMismatch("n\nm", 1, 2, SseCountComparison.Exactly))
+            .IsEqualTo("observed 2 event(s) of type \"n\\nm\"");
+        await Assert.That(SseFailureMessage.DataPredicateNotMatched("n\nm", ["x\ny"]))
+            .IsEqualTo("observed 1 event(s) of type \"n\\nm\", none whose Data satisfied the predicate:\n    data: \"x\\ny\"");
+        await Assert.That(SseFailureMessage.IdNotMatched("n\nm", "e\rd", ["o\nd", null]))
+            .IsEqualTo("observed 2 event(s) of type \"n\\nm\", none with id \"e\\rd\":\n    id: \"o\\nd\"\n    id: <absent>");
+        await Assert.That(SseFailureMessage.IdPredicateNotMatched("n\nm", ["o\nd"]))
+            .IsEqualTo("observed 1 event(s) of type \"n\\nm\", none whose id satisfied the predicate:\n    id: \"o\\nd\"");
+        await Assert.That(SseFailureMessage.UntilEventNotReached("u\nv", 2))
+            .IsEqualTo("the read was canceled after 2 event(s), before an event of type \"u\\nv\" arrived to end the observation window");
+        await Assert.That(SseFailureMessage.EventIdsNotAsExpected("e", "event 1\nhas no id", ["o\nd"]))
+            .IsEqualTo("event 1\\nhas no id\n  ids: \"o\\nd\"");
+        await Assert.That(SseFailureMessage.DataDeserializationFailed("n", "x\ny", new InvalidOperationException("p\r\nq")))
+            .IsEqualTo("the deserializer threw InvalidOperationException: p\\r\\nq\n  data: \"x\\ny\"");
+        await Assert.That(SseFailureMessage.RetryMillisPredicateNotMatched("n\nm", [5]))
+            .IsEqualTo("observed 1 event(s) of type \"n\\nm\", none whose RetryMillis satisfied the predicate:\n    retry: 5");
+        await Assert.That(SseFailureMessage.UnexpectedContentType("text/a\nb"))
+            .IsEqualTo("the response Content-Type was \"text/a\\nb\" (expected \"text/event-stream\")");
+        await Assert.That(SseFailureMessage.UncleanCancellation(new InvalidOperationException("p\r\nq")))
+            .IsEqualTo("the read threw InvalidOperationException instead of ending with cooperative cancellation: p\\r\\nq");
+    }
+
+    /// <summary>Data is truncated to 80 characters before it is escaped, so the documented length holds for
+    /// multi-line data too.</summary>
+    [Test]
+    public async Task DataPredicateNotMatched_TruncatesBeforeEscaping(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var data = new string('a', 79) + "\n" + "tail";
+
+        var message = SseFailureMessage.DataPredicateNotMatched("n", [data]);
+
+        await Assert.That(message).EndsWith("    data: \"" + new string('a', 79) + "\\n…\"");
     }
 
     [Test]

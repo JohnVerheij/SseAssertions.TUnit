@@ -55,6 +55,7 @@ internal sealed class SmokeTest
         await using var sse = await SseStream.OpenAsync(client, new Uri("/events", UriKind.Relative), cancellationToken);
 
         await Assert.That(sse.FirstFrame.RetryMillis).IsEqualTo(3000);
+        await Assert.That(sse).HasSseContentType(strict: true);
         await Assert.That(sse).HasSseEvent("tick", cancellationToken).WithId(static id => id is not null).Exactly(1).Until("done");
         await Assert.That(sse).HasSseEventIds(cancellationToken).Sequential(startingAt: 3);
     }

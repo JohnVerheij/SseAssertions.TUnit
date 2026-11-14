@@ -14,7 +14,7 @@
     Snapshot baselines live under Snapshots/*.expected.txt next to this csproj.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <RootNamespace>SseAssertions.TUnit.SnapshotTests</RootNamespace>
     <AssemblyName>SseAssertions.TUnit.SnapshotTests</AssemblyName>
 

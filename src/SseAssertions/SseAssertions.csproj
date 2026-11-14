@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <RootNamespace>SseAssertions</RootNamespace>
     <AssemblyName>SseAssertions</AssemblyName>
     <IsPublishable>false</IsPublishable>
@@ -14,7 +14,7 @@
     <Version>0.8.0</Version>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseStream, which connects to a live endpoint and returns once its first frame has arrived; SseEventReader, which reads events as they arrive; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand). AOT-compatible, trimmable, no runtime reflection.</Description>
+    <Description>Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test projects. WHATWG / W3C-compliant SseFrameParser turning wire-format text into IReadOnlyList&lt;SseEvent&gt;; SseStream, which connects to a live endpoint and returns once its first frame has arrived; SseEventReader, which reads events as they arrive; SseFailureMessage factories for consumer-authored typed assertions; SseCountComparison enum backing count terminators. Test-framework-specific assertion entry points live in adapter packages (SseAssertions.TUnit is the TUnit adapter). AOT-compatible, trimmable, no runtime reflection.</Description>
     <PackageTags>assertions;testing;sse;server-sent-events;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://sseassertions.dev</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

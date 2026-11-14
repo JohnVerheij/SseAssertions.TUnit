@@ -28,7 +28,6 @@ public sealed class SseEventIdsAssertion : Assertion<string>
     public SseEventIdsAssertion(AssertionContext<string> context)
         : base(context)
     {
-        Context.ExpressionBuilder.Append(".HasSseEventIds()");
     }
 
     /// <summary>Requires the ids to be integers, each greater than the one before.</summary>
@@ -74,7 +73,7 @@ public sealed class SseEventIdsAssertion : Assertion<string>
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _matcher.Until = eventName;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{SseText.EscapeLineBreaks(eventName)}{"\""})");
         return this;
     }
 
@@ -84,7 +83,7 @@ public sealed class SseEventIdsAssertion : Assertion<string>
         if (metadata.Exception is not null)
         {
             return Task.FromResult(AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception));
         }
 

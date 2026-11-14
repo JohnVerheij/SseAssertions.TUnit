@@ -21,6 +21,12 @@ namespace SseAssertions.TUnit.SnapshotTests;
 [Timeout(10_000)]
 internal sealed class PublicApiTests
 {
+    // One baseline serves every target framework: the TargetFramework attribute is the only line that differs.
+    private static readonly ApiGeneratorOptions ApiOptions = new()
+    {
+        ExcludeAttributes = ["System.Runtime.Versioning.TargetFrameworkAttribute"],
+    };
+
     [Test]
     public async Task SseAssertionsPublicApiHasNotChangedAsync(CancellationToken ct)
     {
@@ -28,7 +34,7 @@ internal sealed class PublicApiTests
         var assembly = typeof(global::SseAssertions.SseEvent).Assembly;
         // Normalize line endings so the snapshot baseline survives both Linux CI (LF native)
         // and Windows local dev (CRLF native).
-        var publicApi = assembly.GeneratePublicApi().ReplaceLineEndings("\n");
+        var publicApi = assembly.GeneratePublicApi(ApiOptions).ReplaceLineEndings("\n");
 
         await Assert.That(publicApi).MatchesSnapshot();
     }
@@ -38,7 +44,7 @@ internal sealed class PublicApiTests
     {
         ct.ThrowIfCancellationRequested();
         var assembly = typeof(global::SseAssertions.TUnit.SseFormatAssertions).Assembly;
-        var publicApi = assembly.GeneratePublicApi().ReplaceLineEndings("\n");
+        var publicApi = assembly.GeneratePublicApi(ApiOptions).ReplaceLineEndings("\n");
 
         await Assert.That(publicApi).MatchesSnapshot();
     }

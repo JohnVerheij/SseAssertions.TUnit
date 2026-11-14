@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using SseAssertions;
@@ -43,7 +44,6 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
     {
         ArgumentNullException.ThrowIfNull(eventNames);
         _expectedEventNames = eventNames;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEventsInOrder({FormatNameList(eventNames)})");
     }
 
     /// <summary>Tightens the assertion to require the named events to appear contiguously, with
@@ -62,7 +62,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         if (metadata.Exception is not null)
         {
             return Task.FromResult(AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception));
         }
 
@@ -119,24 +119,20 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
                 var predecessor = expectedNames[k - 1];
                 var predIdx = searchStart - 1;
                 return AssertionResult.Failed(string.Concat(
-                    "expected events [",
-                    FormatNameList(expectedNames),
-                    "] in order, but \"",
-                    name,
+                    "\"",
+                    SseText.EscapeLineBreaks(name),
                     "\" (index ",
                     earlierIdx.ToString(CultureInfo.InvariantCulture),
                     ") appeared before \"",
-                    predecessor,
+                    SseText.EscapeLineBreaks(predecessor),
                     "\" (index ",
                     predIdx.ToString(CultureInfo.InvariantCulture),
                     ")"));
             }
 
             return AssertionResult.Failed(string.Concat(
-                "expected events [",
-                FormatNameList(expectedNames),
-                "] in order, but \"",
-                name,
+                "\"",
+                SseText.EscapeLineBreaks(name),
                 "\" was not in the stream"));
         }
 
@@ -148,9 +144,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         if (events.Count < expectedNames.Count)
         {
             return AssertionResult.Failed(string.Concat(
-                "expected events [",
-                FormatNameList(expectedNames),
-                "] contiguously, but the stream had only ",
+                "the stream had only ",
                 events.Count.ToString(CultureInfo.InvariantCulture),
                 " event(s)"));
         }
@@ -187,7 +181,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             {
                 if (!string.Equals(events[start + k].EventName, expectedNames[k], StringComparison.Ordinal))
                 {
-                    return FailWithMismatch(expectedNames, events[start + k].EventName, start + k, expectedNames[k]);
+                    return FailWithMismatch(events[start + k].EventName, start + k, expectedNames[k]);
                 }
 
                 matchedLength++;
@@ -205,16 +199,14 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             : FailWithFirstNameNotInStream(expectedNames);
     }
 
-    private static AssertionResult FailWithMismatch(IReadOnlyList<string> expectedNames, string actualName, int actualIndex, string expectedName)
+    private static AssertionResult FailWithMismatch(string actualName, int actualIndex, string expectedName)
         => AssertionResult.Failed(string.Concat(
-            "expected events [",
-            FormatNameList(expectedNames),
-            "] contiguously, but \"",
-            actualName,
+            "\"",
+            SseText.EscapeLineBreaks(actualName),
             "\" appeared at index ",
             actualIndex.ToString(CultureInfo.InvariantCulture),
             " instead of \"",
-            expectedName,
+            SseText.EscapeLineBreaks(expectedName),
             "\""));
 
     private static AssertionResult FailWithPartialPrefix(IReadOnlyList<string> expectedNames, int prefixStart, int prefixLength)
@@ -225,9 +217,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
             matchedPrefix[i] = expectedNames[i];
         }
         return AssertionResult.Failed(string.Concat(
-            "expected events [",
-            FormatNameList(expectedNames),
-            "] contiguously, but the stream ended after matching prefix [",
+            "the stream ended after matching prefix [",
             FormatNameList(matchedPrefix),
             "] starting at index ",
             prefixStart.ToString(CultureInfo.InvariantCulture)));
@@ -235,10 +225,8 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
 
     private static AssertionResult FailWithFirstNameNotInStream(IReadOnlyList<string> expectedNames)
         => AssertionResult.Failed(string.Concat(
-            "expected events [",
-            FormatNameList(expectedNames),
-            "] contiguously, but \"",
-            expectedNames[0],
+            "\"",
+            SseText.EscapeLineBreaks(expectedNames[0]),
             "\" was not in the stream"));
 
     private static bool MatchesAt(IReadOnlyList<SseEvent> events, int start, IReadOnlyList<string> expectedNames)
@@ -265,22 +253,6 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         return -1;
     }
 
-    private static string FormatNameList(IReadOnlyList<string> names)
-    {
-        if (names.Count is 0)
-        {
-            return string.Empty;
-        }
-
-        var sb = new StringBuilder();
-        for (var i = 0; i < names.Count; i++)
-        {
-            if (i > 0)
-            {
-                sb.Append(", ");
-            }
-            sb.Append(names[i]);
-        }
-        return sb.ToString();
-    }
+    private static string FormatNameList(string[] names)
+        => string.Join(", ", names.Select(static name => SseText.EscapeLineBreaks(name)));
 }

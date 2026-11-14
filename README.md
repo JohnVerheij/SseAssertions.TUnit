@@ -8,7 +8,7 @@
 [![NuGet](https://img.shields.io/nuget/v/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![Downloads](https://img.shields.io/nuget/dt/SseAssertions.TUnit.svg)](https://www.nuget.org/packages/SseAssertions.TUnit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%2011.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet)
 
 TUnit-native Server-Sent Events (SSE) assertions for .NET. Fluent entry points over TUnit's `Assert.That(...)` pipeline for asserting on SSE event streams from HTTP response bodies, streams, and strings. For a live endpoint, `SseStream.OpenAsync` returns once the server's first frame has arrived (it has subscribed), so a test can trigger events and assert on them without a sleep; the event assertions read only until their outcome is decided. AOT-compatible, trimmable, no runtime reflection in the assertion path.
 
@@ -77,7 +77,7 @@ dotnet add package SseAssertions.TUnit
 dotnet add package SseAssertions
 ```
 
-**Requirements:** TUnit 1.83.0 or later, .NET 10. AOT-compatible, trimmable.
+**Requirements:** TUnit 1.85.0 or later, .NET 10 or .NET 11. AOT-compatible, trimmable.
 
 ## Package layout
 
@@ -87,9 +87,8 @@ dotnet add package SseAssertions
 | [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) | TUnit adapter: `HasSseEvent` and `HasSseEventIds` chains on `string`, `Stream`, and `HttpResponseMessage`, plus first-event, in-order, retry-directive, and `IsServerSentEventsStream()` checks | `SseAssertions` + `TUnit.Assertions` + `TUnit.Core` |
 
 Install `SseAssertions.TUnit` for TUnit test projects; `SseAssertions` comes
-transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are not
-shipped; they would reuse the `SseAssertions` core. Open a feature request if
-you need one.
+transitively. The `SseAssertions` core has no test-framework dependency, so a
+project that only needs the parser and `SseStream` can use it on its own.
 
 ## Namespaces
 
@@ -194,7 +193,9 @@ rule described here.
   unlabeled frames as `event: message`. Test fixtures that emit unlabeled
   frames must assert against `"message"`, not `null`.
 - **`retry:` values** must be non-negative ASCII digits; non-numeric values are
-  ignored.
+  ignored. A `retry:` field counts even in a frame without `data:`, which is
+  not dispatched as an event; the retry-directive assertions read these fields
+  directly.
 - **`retry:` is a directive field, not a named event.** `HasSseRetryDirectiveFirst`
   matches the WHATWG `retry:` directive field, not an `event: retry` named event.
   A stream that emits `event: retry` followed by a `data:` field but no `retry:`
@@ -228,6 +229,7 @@ rule described here.
 | `Stream` (incl. `SseStream`) | `.HasSseEventIds(cancellationToken)` | `SseStreamEventIdsAssertion` (chain) | `StrictlyIncreasing()`, `Sequential()`, `Sequential(long startingAt)`, `Until(string)` |
 | `HttpResponseMessage` | `.HasSseEventIds(cancellationToken)` or `.HasSseEventIds(strictContentType, cancellationToken)` | `SseResponseEventIdsAssertion` (chain) | `StrictlyIncreasing()`, `Sequential()`, `Sequential(long startingAt)`, `Until(string)` |
 | `HttpResponseMessage` | `.HasSseContentType(strict)` | flat - `AssertionResult` | - |
+| `SseStream` | `.HasSseContentType(strict)` | flat - `AssertionResult` | - |
 | `string` | `.HasFirstSseEvent(eventName)` | flat - `AssertionResult` | - |
 | `Stream` | `.HasFirstSseEvent(eventName, cancellationToken)` | flat - `Task<AssertionResult>` | - |
 | `HttpResponseMessage` | `.HasFirstSseEvent(eventName, strictContentType, cancellationToken)` | flat - `Task<AssertionResult>` | - |
@@ -256,11 +258,19 @@ complete, and `HasSseEventIds` stops at the first violation. `Until(eventName)`
 ends the observation window after the first event of that type, which bounds
 `AtMost`, `Exactly`, and `HasSseEventIds` on an endless stream. Otherwise the read
 runs to the end of the body or until the cancellation token ends it. The
-retry-directive assertions read the whole body, because a bare `retry:` frame
-carries no event; on a live stream, `SseStream.FirstFrame` gives the first
-frame's `retry:` directly. The `string` receiver stops at the same point, so a body
+retry-directive assertions read the whole body and look at the `retry:` fields
+themselves, because a `retry:` can sit in a frame without `data:` (which is no
+event) and can come at any point; on a live stream, `SseStream.FirstFrame` gives
+the first frame's `retry:` directly. The `string` receiver stops at the same point, so a body
 gives the same verdict on every receiver. Bodies are decoded as UTF-8, as the
 SSE specification requires.
+
+`HasSseContentType(strict)` checks the `Content-Type` header only, without
+reading the body, on an `HttpResponseMessage` and on an open `SseStream`, so a
+stream test keeps one subject (`Assert.That(sse)`) instead of switching to
+`sse.Response`. `SseStream.OpenAsync` already throws when the response is not
+`text/event-stream`, so on a stream only `strict: true` (the header must carry no
+parameters such as `charset`) can fail.
 
 `HasSseEventIds()` asserts that every event carries an `id:` (the property a
 `Last-Event-ID` reconnection relies on); `StrictlyIncreasing()` and
@@ -272,32 +282,37 @@ await Assert.That(sse).HasSseEventIds(ct).Sequential(startingAt: 1).Until("cycle
 
 ## Failure diagnostics
 
-`SseFailureMessage` is the failure-message factory used by the shipped chain.
-It is also `public` and intended as the extension point for consumer-authored
-typed SSE assertions - see [Cookbook pattern 4](#pattern-4-consumer-authored-typed-sse-assertions).
+Every failure has two lines in TUnit's usual shape: `Expected ...` states what
+the assertion required, and `but ...` states only what was found. The texts
+below are real output.
+
+`SseFailureMessage` is the factory behind the `but` lines. It is also `public`
+and intended as the extension point for consumer-authored typed SSE
+assertions - see [Cookbook pattern 4](#pattern-4-consumer-authored-typed-sse-assertions).
 
 **Missing event** (the chain looked for `"tick"`, none found):
 
 ```text
-to find at least one event of type "tick"
-  but observed: 0 events of type "tick" out of 2 total event(s) captured:
-    [0] event=ping        data="alive"
-    [1] event=heartbeat   data=""
+Expected to find at least 1 event(s) of type "tick"
+but observed 0 events of type "tick" out of 2 total event(s) captured:
+    [0] event=ping data="alive"
+    [1] event=heartbeat data=""
 ```
 
 **Count mismatch** (chain asked for at least 5 but observed 3):
 
 ```text
-to find at least 5 event(s) of type "tick"
-  but observed: 3 event(s) of type "tick"
+Expected to find at least 5 event(s) of type "tick"
+but observed 3 event(s) of type "tick"
 ```
 
 **Data-predicate did not match** (chain found events of the right type but the
-data predicate rejected all of them):
+data predicate rejected all of them; `WithId`, `WithRetryMillis` and
+`WithDataParsedAs` give the same two lines with their own wording):
 
 ```text
-to find at least one event of type "tick" whose Data satisfied the predicate
-  but observed 3 event(s) of that type; none matched:
+Expected to find at least 1 event(s) of type "tick" whose Data satisfies the predicate
+but observed 3 event(s) of type "tick", none whose Data satisfied the predicate:
     data: "1"
     data: "2"
     data: "3"
@@ -307,32 +322,40 @@ to find at least one event of type "tick" whose Data satisfied the predicate
 response carried `application/json`):
 
 ```text
-the response to have Content-Type "text/event-stream"
-  but got: application/json
+Expected to find at least 1 event(s) of type "tick"
+but the response Content-Type was "application/json" (expected "text/event-stream")
 ```
 
 **`Until` event never arrived** (the token ended the read before the event that
 closes the window; the count itself was met):
 
 ```text
-the read to reach an event of type "done", which ends the observation window
-  but the read was canceled after 4 event(s), before one arrived
+Expected to find at most 5 event(s) of type "tick", observed until an event of type "done"
+but the read was canceled after 4 event(s), before an event of type "done" arrived to end the observation window
 ```
 
-**Cancellation cut the read** (the `CancellationToken` fired mid-body-read; the
-partial buffer was parsed and asserted but did not satisfy the count):
+**Cancellation cut the read** (the `CancellationToken` fired while waiting; the
+events that arrived were asserted and did not satisfy the expectation):
 
 ```text
-to find at least 5 event(s) of type "tick"
-  but observed: 2 event(s) of type "tick"
-... and a follow-up:
-the read was canceled after 1247 byte(s); parsed 3 event(s) from the partial buffer
-  partial body excerpt: event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\nevent: tick\nda...
+Expected to find at least 1 event(s) of type "tick"
+but the read was canceled after 14 byte(s); parsed 0 event(s) from the partial buffer
+  partial body excerpt: event: tick
 ```
 
-Per-event `Data` is truncated at 80 characters in the failure list; body
-excerpts (parse failures and cancellation excerpts) are truncated at 256
-characters. Truncations use the U+2026 ellipsis (`...`).
+The excerpt holds the complete lines read; bytes of a line that had not ended
+yet count in the byte total but are not shown. Per-event `Data` is truncated at
+80 characters in the failure list; body excerpts (parse failures and
+cancellation excerpts) are truncated at 256 characters. Truncations use the
+U+2026 ellipsis (`…`).
+
+The flat assertions follow the same shape, for example
+`HasFirstSseEvent("other")`:
+
+```text
+Expected to have the first event named 'other'
+but the first event was "tick"
+```
 
 ## Cookbook
 
@@ -359,6 +382,8 @@ the body to a string and writing a `WithData` predicate that uses your
 `JsonSerializerContext`:
 
 ```csharp
+using System.Text.Json;
+
 [Test]
 public async Task OrderUpdates_StreamHasShippedEventForExpectedOrder(CancellationToken ct)
 {
@@ -401,17 +426,21 @@ public async Task CacheWarmup_EmitsReadyEvent(CancellationToken ct)
 ### Pattern 4: Consumer-authored typed SSE assertions
 
 `SseFailureMessage` is public so consumer-authored assertions can produce
-failure messages that match this package's diagnostic style. Compose
-`SseFrameParser.Parse` with one of the factory methods:
+failure messages that match this package's diagnostic style. The factories
+return only the text that follows `but` in a failure (what was found), so state
+the expectation in `ExpectationMessage`. Compose `SseFrameParser.Parse` with one
+of the factory methods:
 
 ```csharp
+using System;
+using System.Text.Json;
 using SseAssertions;
 using TUnit.Assertions.Attributes;
 using TUnit.Assertions.Core;
 
 public static class OrderEventAssertions
 {
-    [GenerateAssertion]
+    [GenerateAssertion(ExpectationMessage = "to contain a shipped order-update for order {orderId}")]
     public static AssertionResult HasOrderShippedFor(this string body, int orderId)
     {
         var events = SseFrameParser.Parse(body);
@@ -467,6 +496,81 @@ To read events yourself, enumerate `sse.ReadEventsAsync(ct)` or use an
 A test-mode query parameter (`/notifications/ticks?take=3`, after which the
 endpoint closes) still works and makes the read end with the body.
 
+### Pattern 6: Open, trigger, assert with two subscribers
+
+An endpoint that fans out to several subscribers can be tested with one
+`SseStream` per subscriber. Each `SseStream.OpenAsync` returns once the endpoint
+has written its first frame (it has subscribed that client), each stream has its
+own response body and its own position, and an assertion on one never consumes
+what the other still has to read. So: open every subscriber first, trigger once,
+then assert each stream on its own:
+
+```csharp
+[Test]
+public async Task Cycle_ReachesBothSubscribers(CancellationToken ct)
+{
+    var events = new Uri("/cycles/events", UriKind.Relative);
+
+    await using var first = await SseStream.OpenAsync(_client, events, ct);
+    await using var second = await SseStream.OpenAsync(_client, events, ct);
+
+    await _client.PostAsync("/cycles/start", content: null, ct);
+
+    await Assert.That(first).HasSseEvent("cycleCompleted", ct);
+    await Assert.That(second).HasSseEvent("cycleCompleted", ct);
+}
+```
+
+The assertions may also run concurrently (`Task.WhenAll`), and a stream
+continues after what its own previous assertion read, as in
+[Pattern 5](#pattern-5-testing-endpoints-that-never-end).
+
+### Pattern 7: Testing an ASP.NET Core endpoint end to end
+
+An endpoint written with `TypedResults.ServerSentEvents` (or `Results.ServerSentEvents`)
+can be tested through `WebApplicationFactory` with the same calls as any other
+endpoint: `CreateClient()` gives a client over the in-memory test server, and the
+response streams, so the assertions see each event as the endpoint writes it. The
+endpoint has to write a first frame when a client subscribes (below, a `ready`
+event); `SseStream.OpenAsync` returns once that frame has arrived, and every event
+triggered after that is read.
+
+```csharp no-compile
+app.MapGet("/ticks", (Channel<string> channel, CancellationToken ct) =>
+    TypedResults.ServerSentEvents(Ticks(channel, ct)));
+
+static async IAsyncEnumerable<SseItem<string>> Ticks(
+    Channel<string> channel, [EnumeratorCancellation] CancellationToken ct)
+{
+    yield return new SseItem<string>(string.Empty, "ready");   // first frame: the client is subscribed
+    await foreach (var value in channel.Reader.ReadAllAsync(ct))
+    {
+        yield return new SseItem<string>(value, "tick");
+    }
+}
+```
+
+```csharp no-compile
+public class TicksEndpointTests : WebApplicationFactory<Program>
+{
+    [Test]
+    public async Task Ticks_ArriveAsTheyArePosted(CancellationToken ct)
+    {
+        using var client = CreateClient();
+
+        await using var sse = await SseStream.OpenAsync(client, new Uri("/ticks", UriKind.Relative), ct);
+        await client.PostAsync("/tick?value=a", content: null, ct);
+
+        await Assert.That(sse).HasSseContentType();
+        await Assert.That(sse).HasSseEvent("tick", ct).WithData(data => data is "a").Exactly(1).Until("tick");
+    }
+}
+```
+
+The block is not compiled with the other samples: this package has no
+`Microsoft.AspNetCore.*` dependency, and the test project that hosts the endpoint
+needs `Microsoft.AspNetCore.Mvc.Testing`.
+
 ## Out of scope
 
 Read this before opening a feature request.
@@ -508,11 +612,11 @@ The 1.0 milestone signals API stability.
 
 ## Roadmap
 
-Nothing planned beyond the current surface; new entry points are demand-driven.
+Nothing planned beyond the current surface.
 
 ## Family compatibility
 
-The nine assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, `GrpcAssertions.TUnit`, `TracingAssertions.TUnit`, and `MetricsAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
+The nine assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, `GrpcAssertions.TUnit`, `TracingAssertions.TUnit`, and `MetricsAssertions.TUnit`: release independently and target every .NET version that is in Microsoft support (`net10.0` and `net11.0` today; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy)). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
 
 For per-package release notes:
 - [LogAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/LogAssertions.TUnit/blob/main/CHANGELOG.md)

@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 namespace SseAssertions.TUnit;
 
 /// <summary>
-/// Stream-draining helper for the retry-directive assertions, which inspect frames that carry no event (a bare
-/// <c>retry:</c>). Reads a stream to its end (or until cancellation), capturing whether the supplied token cut
+/// Stream-draining helper for the retry-directive assertions, which inspect fields of frames that carry no event (a
+/// bare <c>retry:</c>). Reads a stream to its end (or until cancellation), capturing whether the supplied token cut
 /// the read short and how many bytes arrived. The event assertions read incrementally through
 /// <see cref="SseAssertions.SseEventReader"/> instead.
 /// </summary>
