@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-15: content-type assertion, .NET 11, one-line failure texts
+
 ### Added
 
 - **`HasSseContentType(bool strict = false)`** on an open `SseStream`, so a stream test keeps one subject (`Assert.That(sse).HasSseContentType()`) instead of switching to `sse.Response`. It is the header-only check of the `HttpResponseMessage` form, with the same failure text, and it does not read the stream. `SseStream.OpenAsync` already throws when the response is not `text/event-stream`, so on a stream only `strict: true` (no `Content-Type` parameters) can fail.
@@ -191,7 +193,8 @@ The 0.0.1 scope is intentionally narrow. The release exists to establish the rep
 
 Both namespaces ship in their respective shipped assemblies; both NuGet packages are independently versioned but evolve in lockstep at the v0.x stage.
 
-[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.1...v0.6.0
