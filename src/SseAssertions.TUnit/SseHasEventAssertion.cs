@@ -92,7 +92,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
         _matcher.HasIdFilter = true;
         _matcher.ExpectedId = id;
         _matcher.IdPredicate = null;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{SseText.EscapeLineBreaks(id)}{"\""})");
         return this;
     }
 
@@ -124,7 +124,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _matcher.Until = eventName;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{SseText.EscapeLineBreaks(eventName)}{"\""})");
         return this;
     }
 
@@ -193,7 +193,7 @@ public sealed class SseHasEventAssertion : Assertion<string>
         if (metadata.Exception is not null)
         {
             return Task.FromResult(AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception));
         }
 

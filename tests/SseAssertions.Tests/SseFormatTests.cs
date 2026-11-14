@@ -55,4 +55,24 @@ internal sealed class SseFormatTests
 
         await Assert.That(SseFormat.LooksLikeServerSentEvents(body)).IsTrue();
     }
+
+    [Test]
+    public async Task LooksLikeServerSentEvents_CrFrameSeparator_ReturnsTrue(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        // CR alone is a line ending in the specification, and the parser reads this stream as one event.
+        const string body = "event: ping\rdata: 1\r\r";
+
+        await Assert.That(SseFormat.LooksLikeServerSentEvents(body)).IsTrue();
+    }
+
+    [Test]
+    public async Task LooksLikeServerSentEvents_CrStreamWithTheFieldOnALaterLine_ReturnsTrue(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string body = ": a comment line\rdata: 1\r\r";
+
+        await Assert.That(SseFormat.LooksLikeServerSentEvents(body)).IsTrue();
+    }
 }

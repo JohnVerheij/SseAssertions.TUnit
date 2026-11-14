@@ -28,6 +28,12 @@ namespace SseAssertions;
 /// same suffix.
 /// </para>
 /// <para>
+/// A value quoted inside a one-line clause or a list row (event and id names, data, exception messages) has
+/// each carriage return and line feed replaced by the two characters <c>\r</c> and <c>\n</c>, so a multi-line
+/// value cannot break the line structure. The body excerpts of <see cref="ParseFailure(string)"/> and
+/// <see cref="CancellationCutRead(int, int, string)"/> are the body itself and keep its line breaks.
+/// </para>
+/// <para>
 /// The factories mirror the
 /// <c>JsonAssertions.JsonFailureMessage</c> and <c>MathAssertions.MathFailureMessage</c> patterns
 /// in sibling family packages.
@@ -69,7 +75,7 @@ public static class SseFailureMessage
 
         var sb = new StringBuilder();
         sb.Append("observed 0 events of type \"")
-          .Append(eventName)
+          .Append(SseText.EscapeLineBreaks(eventName))
           .Append("\" out of ")
           .Append(available.Count.ToString(CultureInfo.InvariantCulture))
           .Append(" total event(s) captured");
@@ -93,7 +99,7 @@ public static class SseFailureMessage
             "observed ",
             actual.ToString(CultureInfo.InvariantCulture),
             " event(s) of type \"",
-            eventName,
+            SseText.EscapeLineBreaks(eventName),
             "\"");
     }
 
@@ -114,7 +120,7 @@ public static class SseFailureMessage
         sb.Append("observed ")
           .Append(dataValues.Count.ToString(CultureInfo.InvariantCulture))
           .Append(" event(s) of type \"")
-          .Append(eventName)
+          .Append(SseText.EscapeLineBreaks(eventName))
           .Append("\", none whose Data satisfied the predicate");
         if (dataValues.Count > 0)
         {
@@ -126,7 +132,7 @@ public static class SseFailureMessage
                     sb.Append('\n');
                 }
 
-                sb.Append("    data: \"").Append(TruncateData(dataValues[i])).Append('"');
+                sb.Append("    data: \"").Append(RenderData(dataValues[i])).Append('"');
             }
         }
 
@@ -155,9 +161,9 @@ public static class SseFailureMessage
         sb.Append("observed ")
           .Append(idValues.Count.ToString(CultureInfo.InvariantCulture))
           .Append(" event(s) of type \"")
-          .Append(eventName)
+          .Append(SseText.EscapeLineBreaks(eventName))
           .Append("\", none with id \"")
-          .Append(expectedId)
+          .Append(SseText.EscapeLineBreaks(expectedId))
           .Append('"');
         if (idValues.Count > 0)
         {
@@ -171,7 +177,7 @@ public static class SseFailureMessage
 
                 var value = idValues[i];
                 sb.Append("    id: ");
-                sb.Append(value is null ? "<absent>" : string.Concat("\"", value, "\""));
+                sb.Append(value is null ? "<absent>" : string.Concat("\"", SseText.EscapeLineBreaks(value), "\""));
             }
         }
 
@@ -195,7 +201,7 @@ public static class SseFailureMessage
         sb.Append("observed ")
           .Append(idValues.Count.ToString(CultureInfo.InvariantCulture))
           .Append(" event(s) of type \"")
-          .Append(eventName)
+          .Append(SseText.EscapeLineBreaks(eventName))
           .Append("\", none whose id satisfied the predicate");
         AppendIdLines(sb, idValues);
         return sb.ToString();
@@ -216,7 +222,7 @@ public static class SseFailureMessage
             "the read was canceled after ",
             eventsRead.ToString(CultureInfo.InvariantCulture),
             " event(s), before an event of type \"",
-            untilEventName,
+            SseText.EscapeLineBreaks(untilEventName),
             "\" arrived to end the observation window");
     }
 
@@ -237,7 +243,7 @@ public static class SseFailureMessage
         ArgumentNullException.ThrowIfNull(ids);
 
         var sb = new StringBuilder();
-        sb.Append(violation);
+        sb.Append(SseText.EscapeLineBreaks(violation));
         if (ids.Count is 0)
         {
             return sb.ToString();
@@ -252,7 +258,7 @@ public static class SseFailureMessage
                 sb.Append(", ");
             }
 
-            sb.Append(ids[i] is { } id ? string.Concat("\"", id, "\"") : "<absent>");
+            sb.Append(ids[i] is { } id ? string.Concat("\"", SseText.EscapeLineBreaks(id), "\"") : "<absent>");
         }
 
         if (ids.Count > shown)
@@ -285,9 +291,9 @@ public static class SseFailureMessage
             "the deserializer threw ",
             inner.GetType().Name,
             ": ",
-            inner.Message,
+            SseText.EscapeLineBreaks(inner.Message),
             "\n  data: \"",
-            TruncateData(data),
+            RenderData(data),
             "\"");
     }
 
@@ -309,7 +315,7 @@ public static class SseFailureMessage
         sb.Append("observed ")
           .Append(retryValues.Count.ToString(CultureInfo.InvariantCulture))
           .Append(" event(s) of type \"")
-          .Append(eventName)
+          .Append(SseText.EscapeLineBreaks(eventName))
           .Append("\", none whose RetryMillis satisfied the predicate");
         if (retryValues.Count > 0)
         {
@@ -340,7 +346,7 @@ public static class SseFailureMessage
     {
         return actualContentType is null
             ? "the response had no Content-Type header (expected \"text/event-stream\")"
-            : string.Concat("the response Content-Type was \"", actualContentType, "\" (expected \"text/event-stream\")");
+            : string.Concat("the response Content-Type was \"", SseText.EscapeLineBreaks(actualContentType), "\" (expected \"text/event-stream\")");
     }
 
     /// <summary>Produces the failure message for a canceled read whose partial buffer did not
@@ -379,7 +385,7 @@ public static class SseFailureMessage
             "the read threw ",
             exception.GetType().Name,
             " instead of ending with cooperative cancellation: ",
-            exception.Message);
+            SseText.EscapeLineBreaks(exception.Message));
     }
 
     private static void AppendIdLines(StringBuilder sb, IReadOnlyList<string?> idValues)
@@ -399,12 +405,13 @@ public static class SseFailureMessage
 
             var value = idValues[i];
             sb.Append("    id: ");
-            sb.Append(value is null ? "<absent>" : string.Concat("\"", value, "\""));
+            sb.Append(value is null ? "<absent>" : string.Concat("\"", SseText.EscapeLineBreaks(value), "\""));
         }
     }
 
-    private static string TruncateData(string data)
-        => data.Length <= DataTruncationLimit ? data : string.Concat(data.AsSpan(0, DataTruncationLimit), TruncationSuffix);
+    private static string RenderData(string data)
+        => SseText.EscapeLineBreaks(
+            data.Length <= DataTruncationLimit ? data : string.Concat(data.AsSpan(0, DataTruncationLimit), TruncationSuffix));
 
     private static string TruncateBody(string body)
         => body.Length <= BodyTruncationLimit ? body : string.Concat(body.AsSpan(0, BodyTruncationLimit), TruncationSuffix);
@@ -422,9 +429,9 @@ public static class SseFailureMessage
             sb.Append("\n    [")
               .Append(i.ToString(CultureInfo.InvariantCulture))
               .Append("] event=")
-              .Append(events[i].EventName)
+              .Append(SseText.EscapeLineBreaks(events[i].EventName))
               .Append(" data=\"")
-              .Append(TruncateData(events[i].Data))
+              .Append(RenderData(events[i].Data))
               .Append('"');
         }
     }

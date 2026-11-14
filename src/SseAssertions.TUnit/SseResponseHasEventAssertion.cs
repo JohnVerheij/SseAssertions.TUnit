@@ -130,7 +130,7 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         _matcher.HasIdFilter = true;
         _matcher.ExpectedId = id;
         _matcher.IdPredicate = null;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{SseText.EscapeLineBreaks(id)}{"\""})");
         return this;
     }
 
@@ -164,7 +164,7 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _matcher.Until = eventName;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{SseText.EscapeLineBreaks(eventName)}{"\""})");
         return this;
     }
 
@@ -232,7 +232,7 @@ public sealed class SseResponseHasEventAssertion : Assertion<HttpResponseMessage
         if (metadata.Exception is not null)
         {
             return AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception);
         }
 

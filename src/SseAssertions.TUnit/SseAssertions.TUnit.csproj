@@ -79,6 +79,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The internal line-break escaper of the core, compiled into this assembly too (the core has no
+         InternalsVisibleTo), so both packages render failure text through one helper. -->
+    <Compile Include="../SseAssertions/SseText.cs" Link="SseText.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Codifies the no-reflection convention as a build-time error. See SseAssertions.csproj
          comment for the full rationale; the file is shared across both src projects. -->
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)../../BannedSymbols.txt" />

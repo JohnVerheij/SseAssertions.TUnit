@@ -613,6 +613,107 @@ internal sealed class FailureMessageTests
         await Assert.That(Count(order!.Message, ".HasSseEventsInOrder(")).IsEqualTo(1);
     }
 
+    /// <summary>An event's data is multi-line by design; in a list row of a failure it is shown on one line.</summary>
+    [Test]
+    public async Task MultiLineData_IsShownOnOneLineInEveryListRow(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string body = "event: tick\ndata: a\ndata: b\n\n";
+
+        var nearMiss = await FailureOf(async () => await Assert.That(body).HasSseEvent("tick").WithData(static _ => false));
+        var notFound = await FailureOf(async () => await Assert.That(body).HasSseEvent("zzz"));
+
+        await Assert.That(nearMiss).IsEqualTo(Lines(
+            "Expected to find at least 1 event(s) of type \"tick\" whose Data satisfies the predicate",
+            "but observed 1 event(s) of type \"tick\", none whose Data satisfied the predicate:",
+            "    data: \"a\\nb\""));
+        await Assert.That(notFound).IsEqualTo(Lines(
+            "Expected to find at least 1 event(s) of type \"zzz\"",
+            "but observed 0 events of type \"zzz\" out of 1 total event(s) captured:",
+            "    [0] event=tick data=\"a\\nb\""));
+    }
+
+    /// <summary>A deserializer exception message can span lines; the failure keeps its structure.</summary>
+    [Test]
+    public async Task MultiLineDeserializerMessage_IsShownOnOneLine(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string body = "event: order\ndata: {bad\n\n";
+
+        var message = await FailureOf(async () => await Assert.That(body).HasSseEvent("order")
+            .WithDataParsedAs<int>(static d => throw new InvalidOperationException("first\r\nsecond"), static v => v > 0));
+
+        await Assert.That(message).IsEqualTo(Lines(
+            "Expected to find at least 1 event(s) of type \"order\" whose Data satisfies the predicate",
+            "but the deserializer threw InvalidOperationException: first\\r\\nsecond",
+            "  data: \"{bad\""));
+    }
+
+    /// <summary>A multi-line exception message of a faulting receiver or read stays on its line.</summary>
+    [Test]
+    public async Task MultiLineExceptionMessage_IsShownOnOneLine(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var failure = new InvalidOperationException("first\r\nsecond");
+        using var faulting = new FaultingStream(new OperationCanceledException("foreign\r\nsecond"));
+        using var transport = new FaultingStream(new IOException("reset\nby peer"));
+
+        var hasEvent = await FailureOf(async () => await Assert.That<string>(() => ThrowBody(failure)).HasSseEvent("x"));
+        var ids = await FailureOf(async () => await Assert.That<string>(() => ThrowBody(failure)).HasSseEventIds());
+        var order = await FailureOf(async () => await Assert.That<string>(() => ThrowBody(failure)).HasSseEventsInOrder(["x"]));
+        var streamEvent = await FailureOf(async () => await Assert.That(() => ThrowStream(failure)).HasSseEvent("x", ct));
+        var streamIds = await FailureOf(async () => await Assert.That(() => ThrowStream(failure)).HasSseEventIds(ct));
+        var responseEvent = await FailureOf(async () => await Assert.That(() => ThrowResponse(failure)).HasSseEvent("x", cancellationToken: ct));
+        var responseIds = await FailureOf(async () => await Assert.That(() => ThrowResponse(failure)).HasSseEventIds(cancellationToken: ct));
+        var foreign = await FailureOf(async () => await Assert.That(faulting).EndsCleanlyOnCancellation(ct));
+        var unclean = await FailureOf(async () => await Assert.That(transport).EndsCleanlyOnCancellation(ct));
+
+        foreach (var message in new[] { hasEvent, ids, order, streamEvent, streamIds, responseEvent, responseIds })
+        {
+            await Assert.That(message).EndsWith("but threw InvalidOperationException: first\\r\\nsecond");
+        }
+
+        await Assert.That(foreign).EndsWith("OperationCanceledException: foreign\\r\\nsecond");
+        await Assert.That(unclean).EndsWith("instead of ending with cooperative cancellation: reset\\nby peer");
+    }
+
+    /// <summary>Caller-supplied names and ids are one line in the expectation, the trailing expression and the
+    /// failure, whatever characters they hold.</summary>
+    [Test]
+    public async Task CallerSuppliedNamesWithLineBreaks_StayOnOneLine(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string body = "event: tick\ndata: 1\n\n";
+        using var stream = Bytes(body);
+        using var response = Response(body);
+
+        var hasEvent = await Assert.That(async () => await Assert.That(body).HasSseEvent("a\nb").WithId("i\nd").Until("c\nd"))
+            .Throws<AssertionException>();
+        var streamEvent = await Assert.That(async () => await Assert.That(stream).HasSseEvent("a\nb", ct).WithId("i\nd").Until("c\nd"))
+            .Throws<AssertionException>();
+        var responseEvent = await Assert.That(async () => await Assert.That(response).HasSseEvent("a\nb", cancellationToken: ct).WithId("i\nd").Until("c\nd"))
+            .Throws<AssertionException>();
+        var ids = await Assert.That(async () => await Assert.That(body).HasSseEventIds().Until("c\nd")).Throws<AssertionException>();
+        var order = await FailureOf(async () => await Assert.That(body).HasSseEventsInOrder(["tick", "a\nb"]));
+
+        foreach (var message in new[] { hasEvent!.Message, streamEvent!.Message, responseEvent!.Message })
+        {
+            await Assert.That(message).Contains("of type \"a\\nb\" with id \"i\\nd\", observed until an event of type \"c\\nd\"");
+            await Assert.That(message).Contains(".WithId(\"i\\nd\").Until(\"c\\nd\")");
+        }
+
+        await Assert.That(ids!.Message).Contains(".Until(\"c\\nd\")");
+        await Assert.That(order).IsEqualTo(Lines(
+            "Expected to contain events [tick, a\\nb] in order",
+            "but \"a\\nb\" was not in the stream"));
+    }
+
+    private static string ThrowBody(Exception exception) => throw exception;
+
+    private static Stream ThrowStream(Exception exception) => throw exception;
+
+    private static HttpResponseMessage ThrowResponse(Exception exception) => throw exception;
+
     private static int Count(string text, string value) => text.Split(value).Length - 1;
 
     /// <summary>A stream whose reads throw the given exception.</summary>

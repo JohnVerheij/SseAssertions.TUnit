@@ -31,12 +31,12 @@ internal static class SseExpectation
             .Append(' ')
             .Append(matcher.ExpectedCount.ToString(CultureInfo.InvariantCulture))
             .Append(" event(s) of type \"")
-            .Append(eventName)
+            .Append(SseText.EscapeLineBreaks(eventName))
             .Append('"');
         AppendNarrowers(sb, matcher);
         if (matcher.Until is { } until)
         {
-            sb.Append(", observed until an event of type \"").Append(until).Append('"');
+            sb.Append(", observed until an event of type \"").Append(SseText.EscapeLineBreaks(until)).Append('"');
         }
 
         return sb.ToString();
@@ -54,7 +54,7 @@ internal static class SseExpectation
 
         if (matcher.HasIdFilter)
         {
-            sb.Append(" with id \"").Append(matcher.ExpectedId).Append('"');
+            sb.Append(" with id \"").Append(SseText.EscapeLineBreaks(matcher.ExpectedId!)).Append('"');
         }
         else if (matcher.IdPredicate is not null)
         {

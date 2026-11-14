@@ -81,7 +81,7 @@ public sealed class SseStreamEventIdsAssertion : Assertion<Stream>
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _matcher.Until = eventName;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{SseText.EscapeLineBreaks(eventName)}{"\""})");
         return this;
     }
 
@@ -91,7 +91,7 @@ public sealed class SseStreamEventIdsAssertion : Assertion<Stream>
         if (metadata.Exception is not null)
         {
             return AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception);
         }
 

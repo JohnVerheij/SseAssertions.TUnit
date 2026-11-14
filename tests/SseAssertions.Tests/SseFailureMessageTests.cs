@@ -348,6 +348,51 @@ internal sealed class SseFailureMessageTests
         await Assert.That(msg.Contains(longExcerpt, StringComparison.Ordinal)).IsFalse();
     }
 
+    /// <summary>Every value a factory quotes (names, ids, data, exception messages) stays on its line when it holds
+    /// a CR or LF, so list rows and one-line clauses keep their structure.</summary>
+    [Test]
+    public async Task Factories_EscapeLineBreaksInQuotedValues(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var events = new List<SseEvent> { new("a\nb", "x\r\ny") };
+
+        await Assert.That(SseFailureMessage.EventNotFound("n\nm", events))
+            .IsEqualTo("observed 0 events of type \"n\\nm\" out of 1 total event(s) captured:\n    [0] event=a\\nb data=\"x\\r\\ny\"");
+        await Assert.That(SseFailureMessage.EventCountMismatch("n\nm", 1, 2, SseCountComparison.Exactly))
+            .IsEqualTo("observed 2 event(s) of type \"n\\nm\"");
+        await Assert.That(SseFailureMessage.DataPredicateNotMatched("n\nm", ["x\ny"]))
+            .IsEqualTo("observed 1 event(s) of type \"n\\nm\", none whose Data satisfied the predicate:\n    data: \"x\\ny\"");
+        await Assert.That(SseFailureMessage.IdNotMatched("n\nm", "e\rd", ["o\nd", null]))
+            .IsEqualTo("observed 2 event(s) of type \"n\\nm\", none with id \"e\\rd\":\n    id: \"o\\nd\"\n    id: <absent>");
+        await Assert.That(SseFailureMessage.IdPredicateNotMatched("n\nm", ["o\nd"]))
+            .IsEqualTo("observed 1 event(s) of type \"n\\nm\", none whose id satisfied the predicate:\n    id: \"o\\nd\"");
+        await Assert.That(SseFailureMessage.UntilEventNotReached("u\nv", 2))
+            .IsEqualTo("the read was canceled after 2 event(s), before an event of type \"u\\nv\" arrived to end the observation window");
+        await Assert.That(SseFailureMessage.EventIdsNotAsExpected("e", "event 1\nhas no id", ["o\nd"]))
+            .IsEqualTo("event 1\\nhas no id\n  ids: \"o\\nd\"");
+        await Assert.That(SseFailureMessage.DataDeserializationFailed("n", "x\ny", new InvalidOperationException("p\r\nq")))
+            .IsEqualTo("the deserializer threw InvalidOperationException: p\\r\\nq\n  data: \"x\\ny\"");
+        await Assert.That(SseFailureMessage.RetryMillisPredicateNotMatched("n\nm", [5]))
+            .IsEqualTo("observed 1 event(s) of type \"n\\nm\", none whose RetryMillis satisfied the predicate:\n    retry: 5");
+        await Assert.That(SseFailureMessage.UnexpectedContentType("text/a\nb"))
+            .IsEqualTo("the response Content-Type was \"text/a\\nb\" (expected \"text/event-stream\")");
+        await Assert.That(SseFailureMessage.UncleanCancellation(new InvalidOperationException("p\r\nq")))
+            .IsEqualTo("the read threw InvalidOperationException instead of ending with cooperative cancellation: p\\r\\nq");
+    }
+
+    /// <summary>Data is truncated to 80 characters before it is escaped, so the documented length holds for
+    /// multi-line data too.</summary>
+    [Test]
+    public async Task DataPredicateNotMatched_TruncatesBeforeEscaping(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var data = new string('a', 79) + "\n" + "tail";
+
+        var message = SseFailureMessage.DataPredicateNotMatched("n", [data]);
+
+        await Assert.That(message).EndsWith("    data: \"" + new string('a', 79) + "\\n…\"");
+    }
+
     [Test]
     public async Task CancellationCutRead_NullExcerpt_ThrowsArgumentNullException(CancellationToken ct)
     {

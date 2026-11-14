@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using SseAssertions;
@@ -61,7 +62,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         if (metadata.Exception is not null)
         {
             return Task.FromResult(AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception));
         }
 
@@ -119,11 +120,11 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
                 var predIdx = searchStart - 1;
                 return AssertionResult.Failed(string.Concat(
                     "\"",
-                    name,
+                    SseText.EscapeLineBreaks(name),
                     "\" (index ",
                     earlierIdx.ToString(CultureInfo.InvariantCulture),
                     ") appeared before \"",
-                    predecessor,
+                    SseText.EscapeLineBreaks(predecessor),
                     "\" (index ",
                     predIdx.ToString(CultureInfo.InvariantCulture),
                     ")"));
@@ -131,7 +132,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
 
             return AssertionResult.Failed(string.Concat(
                 "\"",
-                name,
+                SseText.EscapeLineBreaks(name),
                 "\" was not in the stream"));
         }
 
@@ -201,11 +202,11 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
     private static AssertionResult FailWithMismatch(string actualName, int actualIndex, string expectedName)
         => AssertionResult.Failed(string.Concat(
             "\"",
-            actualName,
+            SseText.EscapeLineBreaks(actualName),
             "\" appeared at index ",
             actualIndex.ToString(CultureInfo.InvariantCulture),
             " instead of \"",
-            expectedName,
+            SseText.EscapeLineBreaks(expectedName),
             "\""));
 
     private static AssertionResult FailWithPartialPrefix(IReadOnlyList<string> expectedNames, int prefixStart, int prefixLength)
@@ -225,7 +226,7 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
     private static AssertionResult FailWithFirstNameNotInStream(IReadOnlyList<string> expectedNames)
         => AssertionResult.Failed(string.Concat(
             "\"",
-            expectedNames[0],
+            SseText.EscapeLineBreaks(expectedNames[0]),
             "\" was not in the stream"));
 
     private static bool MatchesAt(IReadOnlyList<SseEvent> events, int start, IReadOnlyList<string> expectedNames)
@@ -252,5 +253,6 @@ public sealed class SseEventsInOrderAssertion : Assertion<string>
         return -1;
     }
 
-    private static string FormatNameList(string[] names) => string.Join(", ", names);
+    private static string FormatNameList(string[] names)
+        => string.Join(", ", names.Select(static name => SseText.EscapeLineBreaks(name)));
 }

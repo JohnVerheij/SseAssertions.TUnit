@@ -494,7 +494,7 @@ public static class SseStreamAndHttpAssertions
             "the read was canceled by a different token than the supplied one (for example, an HttpClient timeout): ",
             exception.GetType().Name,
             ": ",
-            exception.Message);
+            SseText.EscapeLineBreaks(exception.Message));
 
     /// <summary>Reads the first event of <paramref name="stream"/> and checks its name; the read stops there.</summary>
     /// <param name="stream">The body.</param>
