@@ -47,7 +47,7 @@ internal sealed class EarlyStopAndUntilTests
             await Assert.That(stream).HasSseEvent("tick", cancellationToken).AtMost(1);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("observed: 2 event(s)");
+        await Assert.That(exception!.Message).Contains("observed 2 event(s)");
     }
 
     /// <summary><c>Exactly(n)</c> fails as soon as the count is exceeded, on the response receiver too.</summary>
@@ -190,8 +190,7 @@ internal sealed class EarlyStopAndUntilTests
             await Assert.That(stream).HasSseEvent("tick", cts.Token).AtMost(5).Until("done");
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("the read to reach an event of type \"done\"");
-        await Assert.That(exception.Message).Contains("canceled after 0 event(s)");
+        await Assert.That(exception!.Message).Contains("but the read was canceled after 0 event(s), before an event of type \"done\" arrived");
     }
 
     /// <summary>When the stream ends without the <c>Until</c> event, the whole stream is the window.</summary>

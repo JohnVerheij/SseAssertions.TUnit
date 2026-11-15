@@ -122,7 +122,7 @@ internal sealed class HasSseEventsInOrderTests
             await Assert.That(stream).HasSseEventsInOrder(AbcNames, strictOrdering: true, cancellationToken: ct);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("contiguously");
+        await Assert.That(ex!.Message).Contains("strict ordering: True");
     }
 
     [Test]

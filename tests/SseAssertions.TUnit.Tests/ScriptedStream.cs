@@ -20,6 +20,7 @@ internal sealed class ScriptedStream : Stream
     private readonly Channel<byte[]> _chunks = Channel.CreateUnbounded<byte[]>();
     private byte[] _current = [];
     private int _offset;
+    private volatile TaskCompletionSource? _pendingRead;
 
     /// <summary>Gets a value indicating whether the stream was disposed.</summary>
     public bool Disposed { get; private set; }
@@ -51,6 +52,17 @@ internal sealed class ScriptedStream : Stream
     /// <param name="bytes">The bytes.</param>
     public void Send(byte[] bytes) => _chunks.Writer.TryWrite(bytes);
 
+    /// <summary>Returns a task that completes when a read has consumed every chunk sent so far and starts waiting
+    /// for the next one. A test cancels or disposes on this signal instead of after a delay, so the reader has
+    /// provably seen all bytes the test expects.</summary>
+    /// <returns>The task for the next read that has to wait; call it before the read starts.</returns>
+    public Task NextPendingRead()
+    {
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingRead = pending;
+        return pending.Task;
+    }
+
     /// <summary>Ends the stream after the chunks already sent.</summary>
     public void Complete() => _chunks.Writer.TryComplete();
 
@@ -59,6 +71,11 @@ internal sealed class ScriptedStream : Stream
     {
         while (_offset >= _current.Length)
         {
+            if (!_chunks.Reader.TryPeek(out _))
+            {
+                _pendingRead?.TrySetResult();
+            }
+
             if (!await _chunks.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 return 0;

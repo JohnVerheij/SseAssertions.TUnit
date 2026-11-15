@@ -1,7 +1,6 @@
 [assembly: System.Reflection.AssemblyMetadata("IsAotCompatible", "True")]
 [assembly: System.Reflection.AssemblyMetadata("IsTrimmable", "True")]
 [assembly: System.Reflection.AssemblyMetadata("RepositoryUrl", "https://github.com/JohnVerheij/SseAssertions.TUnit")]
-[assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
 namespace SseAssertions.TUnit
 {
     [TUnit.Assertions.Attributes.AssertionExtension("HasSseEventIds")]
@@ -25,15 +24,15 @@ namespace SseAssertions.TUnit
     }
     public static class SseFormatAssertions
     {
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have the first event named \'{eventName}\'")]
         public static TUnit.Assertions.Core.AssertionResult HasFirstSseEvent(this string body, string eventName) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to contain a retry directive")]
         public static TUnit.Assertions.Core.AssertionResult HasSseRetryDirective(this string body, int? millis = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to send a retry directive before any data")]
         public static TUnit.Assertions.Core.AssertionResult HasSseRetryDirectiveFirst(this string body) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to send a retry directive of {millis} ms before any data")]
         public static TUnit.Assertions.Core.AssertionResult HasSseRetryDirectiveFirst(this string body, int millis) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have the shape of a Server-Sent Events stream")]
         public static TUnit.Assertions.Core.AssertionResult IsServerSentEventsStream(this string body) { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("HasSseEvent")]
@@ -83,31 +82,33 @@ namespace SseAssertions.TUnit
     }
     public static class SseStreamAndHttpAssertions
     {
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to end cleanly when its read is canceled")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> EndsCleanlyOnCancellation(this System.IO.Stream stream, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to end cleanly when its read is canceled")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> EndsCleanlyOnCancellation(this System.Net.Http.HttpResponseMessage response, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have the first event named \'{eventName}\'")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasFirstSseEvent(this System.IO.Stream stream, string eventName, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have the first event named \'{eventName}\'")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasFirstSseEvent(this System.Net.Http.HttpResponseMessage response, string eventName, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have Content-Type \'text/event-stream\' with strict set to {strict}")]
+        public static TUnit.Assertions.Core.AssertionResult HasSseContentType(this SseAssertions.SseStream stream, bool strict = false) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have Content-Type \'text/event-stream\' with strict set to {strict}")]
         public static TUnit.Assertions.Core.AssertionResult HasSseContentType(this System.Net.Http.HttpResponseMessage response, bool strict = false) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to contain the named events in order (strict ordering: {strictOrdering})")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseEventsInOrder(this System.IO.Stream stream, System.Collections.Generic.IReadOnlyList<string> eventNames, bool strictOrdering = false, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to contain the named events in order (strict ordering: {strictOrdering})")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseEventsInOrder(this System.Net.Http.HttpResponseMessage response, System.Collections.Generic.IReadOnlyList<string> eventNames, bool strictOrdering = false, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to contain a retry directive")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirective(this System.IO.Stream stream, int? millis = default, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to contain a retry directive")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirective(this System.Net.Http.HttpResponseMessage response, int? millis = default, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to send a retry directive before any data")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirectiveFirst(this System.IO.Stream stream, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to send a retry directive of {millis} ms before any data")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirectiveFirst(this System.IO.Stream stream, int millis, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to send a retry directive before any data")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirectiveFirst(this System.Net.Http.HttpResponseMessage response, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to send a retry directive of {millis} ms before any data")]
         public static System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> HasSseRetryDirectiveFirst(this System.Net.Http.HttpResponseMessage response, int millis, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default) { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("HasSseEventIds")]
@@ -230,6 +231,7 @@ namespace TUnit.Assertions.Extensions
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.HttpResponseMessage_HasFirstSseEvent_String_Bool_CancellationToken_Assertion HasFirstSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, bool strictContentType = true, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("strictContentType")] string? strictContentTypeExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.Net.Http.HttpResponseMessage { }
+        public static TUnit.Assertions.Extensions.SseStream_HasSseContentType_Bool_Assertion HasSseContentType(this TUnit.Assertions.Core.IAssertionSource<SseAssertions.SseStream> source, bool strict = false, [System.Runtime.CompilerServices.CallerArgumentExpression("strict")] string? strictExpression = null) { }
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.HttpResponseMessage_HasSseContentType_Bool_Assertion HasSseContentType<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, bool strict = false, [System.Runtime.CompilerServices.CallerArgumentExpression("strict")] string? strictExpression = null)
             where TActual : System.Net.Http.HttpResponseMessage { }
@@ -267,6 +269,12 @@ namespace TUnit.Assertions.Extensions
     {
         public static SseAssertions.TUnit.SseStreamHasEventAssertion HasSseEvent<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, string eventName, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("eventName")] string? eventNameExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null)
             where TActual : System.IO.Stream { }
+    }
+    public sealed class SseStream_HasSseContentType_Bool_Assertion : TUnit.Assertions.Core.Assertion<SseAssertions.SseStream>
+    {
+        public SseStream_HasSseContentType_Bool_Assertion(TUnit.Assertions.Core.AssertionContext<SseAssertions.SseStream> context, bool strict) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<SseAssertions.SseStream> metadata) { }
+        protected override string GetExpectation() { }
     }
     public sealed class Stream_EndsCleanlyOnCancellation_CancellationToken_Assertion : TUnit.Assertions.Core.Assertion<System.IO.Stream>
     {

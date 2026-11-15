@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Text;
 
 namespace SseAssertions;
@@ -102,7 +101,7 @@ internal sealed class SseFrameBuilder
                 _id = value.ToString();
                 break;
 
-            case "retry" when TryParseRetry(value, out var parsed):
+            case "retry" when SseText.TryParseRetry(value, out var parsed):
                 _retry = parsed;
                 break;
 
@@ -110,24 +109,5 @@ internal sealed class SseFrameBuilder
                 // Any other field name is ignored per spec.
                 break;
         }
-    }
-
-    private static bool TryParseRetry(ReadOnlySpan<char> value, out int parsed)
-    {
-        parsed = 0;
-        if (value.Length is 0)
-        {
-            return false;
-        }
-
-        foreach (var c in value)
-        {
-            if (c is < '0' or > '9')
-            {
-                return false;
-            }
-        }
-
-        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out parsed);
     }
 }

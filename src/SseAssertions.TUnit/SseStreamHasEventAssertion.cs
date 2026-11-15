@@ -50,7 +50,6 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
         _eventName = eventName;
         _matcher = new SseEventMatcher(eventName);
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".HasSseEvent({"\""}{eventName}{"\""})");
     }
 
     /// <summary>Narrows the assertion to frames whose <see cref="SseEvent.Data"/> satisfies the
@@ -103,7 +102,7 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
         _matcher.HasIdFilter = true;
         _matcher.ExpectedId = id;
         _matcher.IdPredicate = null;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{id}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".WithId({"\""}{SseText.EscapeLineBreaks(id)}{"\""})");
         return this;
     }
 
@@ -137,7 +136,7 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
     {
         ArgumentNullException.ThrowIfNull(eventName);
         _matcher.Until = eventName;
-        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{eventName}{"\""})");
+        Context.ExpressionBuilder.Append(CultureInfo.InvariantCulture, $".Until({"\""}{SseText.EscapeLineBreaks(eventName)}{"\""})");
         return this;
     }
 
@@ -205,7 +204,7 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
         if (metadata.Exception is not null)
         {
             return AssertionResult.Failed(
-                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
+                $"threw {metadata.Exception.GetType().Name}: {SseText.EscapeLineBreaks(metadata.Exception.Message)}",
                 metadata.Exception);
         }
 
@@ -220,5 +219,5 @@ public sealed class SseStreamHasEventAssertion : Assertion<Stream>
 
     /// <inheritdoc/>
     protected override string GetExpectation()
-        => SseExpectation.Describe(_eventName, _matcher.Comparison, _matcher.ExpectedCount);
+        => SseExpectation.Describe(_eventName, _matcher);
 }

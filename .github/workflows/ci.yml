@@ -23,6 +23,7 @@ jobs:
     uses: JohnVerheij/assertions-ci/.github/workflows/package-ci.yml@7722848a0484cbf98ff0b2affb9a3b12c783dce7 # v1.5.0
     with:
       package: SseAssertions
+      readme-samples: enforce
     permissions:
       contents: read
       id-token: write   # Codecov upload through OIDC

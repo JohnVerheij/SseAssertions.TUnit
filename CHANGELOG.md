@@ -15,6 +15,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-15: content-type assertion, .NET 11, one-line failure texts
+
+### Added
+
+- **`HasSseContentType(bool strict = false)`** on an open `SseStream`, so a stream test keeps one subject (`Assert.That(sse).HasSseContentType()`) instead of switching to `sse.Response`. It is the header-only check of the `HttpResponseMessage` form, with the same failure text, and it does not read the stream. `SseStream.OpenAsync` already throws when the response is not `text/event-stream`, so on a stream only `strict: true` (no `Content-Type` parameters) can fail.
+- **Targets .NET 10 and .NET 11.** Both packages target `net10.0` and `net11.0`; the TUnit and runtime dependencies are the same for both.
+- **Two README recipes.** Cookbook pattern 6 tests an endpoint with two subscribers (one `SseStream` per subscriber, trigger once, assert each stream on its own), and pattern 7 tests an ASP.NET Core `TypedResults.ServerSentEvents` endpoint end to end through `WebApplicationFactory`.
+
+### Changed
+
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.77.0 to 1.85.0: 1.83.0 is the first TUnit with a `net11.0` asset, and 1.85.0 keeps TUnit's OpenTelemetry and ASP.NET Core packages on OpenTelemetry 1.20.x for `net10.0`, so a project with one version for all its TUnit packages gets no .NET 11 packages there.
+- **Every failure text states the expectation once.** The `Expected ...` line comes from the assertion (`ExpectationMessage` on the flat assertions, `GetExpectation()` on the chains) and the `but ...` line says only what was found. Before, most `but` lines repeated the expectation, so a failure read `Expected to satisfy HasFirstSseEvent(other, True, System.Threading.CancellationToken)` followed by `but the first event to be "other"` and `but the first event was "tick"`. The flat assertions now read, for example, `Expected to have the first event named 'other'` and `but the first event was "tick"`. The texts of `IsServerSentEventsStream`, `HasSseContentType`, `HasFirstSseEvent`, `HasSseEventsInOrder`, `HasSseRetryDirective`, `HasSseRetryDirectiveFirst` and `EndsCleanlyOnCancellation` all changed, on every receiver. A test that pinned an old text needs its pin updated.
+- **The `HasSseEvent` chains name their narrowers in the expectation line.** `WithData`, `WithDataParsedAs<T>`, `WithId` (both forms), `WithRetryMillis` and `Until` now appear there (`Expected to find at least 1 event(s) of type "tick" whose Data satisfies the predicate`), and the `but` line counts the events that passed the narrowers or, for an unmet narrower, the events of that type (`but observed 3 event(s) of type "tick", none whose Data satisfied the predicate:`). When the token cuts an `Until` window and the count itself was met, the failure now reads `but the read was canceled after 4 event(s), before an event of type "done" arrived to end the observation window`. The `HasSseEventsInOrder` and `HasSseEventIds` chain failures no longer repeat their expectation either.
+- **`SseFailureMessage` factories return only the text after `but`.** `ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `IdNotMatched`, `IdPredicateNotMatched`, `UntilEventNotReached`, `EventIdsNotAsExpected`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType` and `UncleanCancellation` no longer render the expectation; a consumer assertion states it in its own `ExpectationMessage` (the cookbook sample shows it). `EventCountMismatch` still takes `expected` and `comparison`, `EventIdsNotAsExpected` still takes `expectation`, and `DataDeserializationFailed` still takes `eventName`, but none of the four is rendered. `UnexpectedContentType` now reads `the response Content-Type was "application/json" (expected "text/event-stream")`, or `the response had no Content-Type header (expected "text/event-stream")`.
+- **`HasSseRetryDirective(millis)`** says `no retry directive was found` when the body has no valid `retry:` field, and `observed retry value(s): 3, 4, none equal to 5` when it has other values.
+
+### Fixed
+
+- **`HasSseRetryDirective`** now counts a `retry:` field in a frame without `data:`, on `string`, `Stream` and `HttpResponseMessage`. A server commonly opens the stream with a bare `retry: 3000` frame; the assertion read only the dispatched events, which never carry such a frame, so it failed although the directive was sent. It now reads the `retry:` fields themselves, like `HasSseRetryDirectiveFirst`. A `retry:` whose value is not a non-negative integer is still ignored by `HasSseRetryDirective`.
+- **`HasSseRetryDirectiveFirst(millis)`** read a `retry:` value followed by a NUL character (U+0000) as the number before it. A value with any character other than an ASCII digit is now unparseable there, and `HasSseRetryDirective`, which now reads the fields itself, ignores it, both as the parser does. On a `Stream` or `HttpResponseMessage` whose read the token ended inside a line, the retry-directive assertions read that unfinished line as a field, so `retry: 3`, cut from `retry: 3000`, passed `HasSseRetryDirectiveFirst(3)`. The line the token cut off is now left out.
+- **A failing `HasSseEvent`, `HasSseEventIds` or `HasSseEventsInOrder` chain named its entry point twice** in the trailing `at Assert.That(...)` line (`.HasSseEvent("x").HasSseEvent("x")`). It is named once.
+- **A multi-line value no longer breaks the line structure of a failure.** Event data is multi-line by design and exception messages often are, yet the near-miss lists (`data: "..."`, `id: "..."`, `[0] event=... data="..."`), the `the deserializer threw ...` and `threw ...` lines, the `the read threw ...` and foreign-cancellation lines, and the names and ids quoted in expectations and in `at Assert.That(...)` expressions printed their raw line breaks. Each carriage return and line feed is now shown as `\r` and `\n`. Data is cut at 80 characters first, then escaped. The `SseFailureMessage` factories do the same for the values they quote; the body excerpts of `ParseFailure` and `CancellationCutRead` are the body itself and keep its lines.
+- **`SseFormat.LooksLikeServerSentEvents`** (and so `IsServerSentEventsStream`) recognized only LF and CRLF line endings. A stream whose lines end in CR alone, which the specification allows and the parser reads, returned `false`. It now accepts all three, also mixed in one stream (a blank line that ends in CRLF after a line that ends in LF, for example), and skips a leading byte order mark, as the parser does.
+- **README samples** that a consumer could not compile: the JSON samples of cookbook patterns 2 and 4 lacked `using System.Text.Json;`. The failure diagnostics in the README are now real output (the cancellation sample showed a count mismatch with a follow-up, which the assertion never printed).
+
 ## [0.8.0] - 2026-11-02: connect to a live stream, stop reading when decided, assert event ids
 
 Minor release. `SseStream.OpenAsync` connects to a live endpoint and returns once its first frame has arrived, so a test can trigger events without a sleep and without missing any. The event assertions now read only until their outcome is decided (the retry-directive assertions still read the whole body), `Until(eventName)` ends the observation window at a named event, and `HasSseEventIds()` asserts the id sequence. Two behavior changes and one constructor change, see Changed.
@@ -169,7 +194,8 @@ The 0.0.1 scope is intentionally narrow. The release exists to establish the rep
 
 Both namespaces ship in their respective shipped assemblies; both NuGet packages are independently versioned but evolve in lockstep at the v0.x stage.
 
-[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JohnVerheij/SseAssertions.TUnit/compare/v0.5.1...v0.6.0

@@ -190,8 +190,8 @@ internal sealed class RetryFirstAndCleanCancellationTests
             await Assert.That(response).HasSseRetryDirectiveFirst(9999, cancellationToken: ct);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("retry: 9999");
-        await Assert.That(ex.Message).Contains("retry: 5000");
+        await Assert.That(ex!.Message).Contains("retry directive of 9999 ms");
+        await Assert.That(ex.Message).Contains("the leading retry directive was \"retry: 5000\"");
     }
 
     [Test]
@@ -218,7 +218,7 @@ internal sealed class RetryFirstAndCleanCancellationTests
             await Assert.That(RetryThenData).HasSseRetryDirectiveFirst(9999);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("retry: 9999");
+        await Assert.That(ex!.Message).Contains("retry directive of 9999 ms");
     }
 
     [Test]

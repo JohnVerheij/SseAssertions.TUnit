@@ -69,8 +69,8 @@ internal sealed class SseHasEventStringTests
             await Assert.That(ThreeTicks).HasSseEvent("tick").AtLeast(5);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("at least 5");
-        await Assert.That(ex.Message).Contains("but observed: 3");
+        await Assert.That(ex!.Message).Contains("Expected to find at least 5 event(s) of type \"tick\"");
+        await Assert.That(ex.Message).Contains("but observed 3 event(s) of type \"tick\"");
     }
 
     [Test]
@@ -198,7 +198,7 @@ internal sealed class SseHasEventStringTests
             await Assert.That(IdsBody).HasSseEvent("tick").WithId("zzz").AtLeast(1);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("none carried that id");
+        await Assert.That(ex!.Message).Contains("none with id \"zzz\"");
         await Assert.That(ex.Message).Contains("id: \"a\"");
         await Assert.That(ex.Message).Contains("id: <absent>");
     }

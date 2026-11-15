@@ -56,7 +56,7 @@ internal sealed class SseHasEventHttpTests
             await Assert.That(response).HasSseEvent("tick", cancellationToken: ct);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("<absent>");
+        await Assert.That(ex!.Message).Contains("the response had no Content-Type header");
     }
 
     [Test]
@@ -115,7 +115,7 @@ internal sealed class SseHasEventHttpTests
             await Assert.That(response).HasSseEvent("tick", strictContentType: false, cancellationToken: ct);
         }).Throws<AssertionException>();
 
-        await Assert.That(ex!.Message).Contains("but observed: 0");
+        await Assert.That(ex!.Message).Contains("but observed 0 events of type");
     }
 
     [Test]

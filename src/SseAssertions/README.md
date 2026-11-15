@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/SseAssertions.svg)](https://www.nuget.org/packages/SseAssertions/)
 [![Downloads](https://img.shields.io/nuget/dt/SseAssertions.svg)](https://www.nuget.org/packages/SseAssertions/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%2011.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet)
 
 > **Scope:** Test projects only. Not intended for production code.
 
@@ -21,11 +21,11 @@ Framework-agnostic core for Server-Sent Events (SSE) assertions in .NET test pro
 | `SseFrameParser.Parse(string)` | WHATWG / W3C SSE wire-format parser; handles all three line terminators, strips a UTF-8 BOM at offset 0, ignores comment lines, accumulates multi-line data with `\n` joins. |
 | `SseStream.OpenAsync(client, uri or request, cancellationToken)` | Sends the request, checks the status and the `text/event-stream` media type, and returns once the first frame has arrived (`FirstFrame`, for example its `retry:`). The result is the response body as a `Stream`, positioned after that frame; `ReadEventsAsync` enumerates the events that follow. |
 | `SseEventReader` | Reads events from any stream one at a time, as they arrive (`ReadAsync`), with the parsing rules of `SseFrameParser`. On an `SseStream`, readers created one after another continue exactly where the previous one stopped. |
-| `SseFailureMessage` | Curated failure-message factories (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `IdNotMatched`, `IdPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`, `UntilEventNotReached`, `EventIdsNotAsExpected`, `UncleanCancellation`) for consumer-authored typed SSE assertions. |
+| `SseFailureMessage` | Curated failure-message factories that return only the text after `but` (what was found; the expectation line belongs to the assertion) (`ParseFailure`, `EventNotFound`, `EventCountMismatch`, `DataPredicateNotMatched`, `IdNotMatched`, `IdPredicateNotMatched`, `DataDeserializationFailed`, `RetryMillisPredicateNotMatched`, `UnexpectedContentType`, `CancellationCutRead`, `UntilEventNotReached`, `EventIdsNotAsExpected`, `UncleanCancellation`) for consumer-authored typed SSE assertions. |
 | `SseCountComparison` (public enum) | Comparison label (`AtLeast`, `AtMost`, `Exactly`) carried by `EventCountMismatch`. |
 | `SseFormat.LooksLikeServerSentEvents(string)` | Lightweight discriminator. |
 
-Test-framework-specific entry points live in adapter packages: [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) ships today. xUnit, NUnit, MSTest adapters are possible if demand surfaces.
+Test-framework-specific entry points live in adapter packages: [`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/) is the TUnit adapter.
 
 ## Install
 
@@ -33,7 +33,7 @@ Test-framework-specific entry points live in adapter packages: [`SseAssertions.T
 dotnet add package SseAssertions
 ```
 
-**Requirements:** .NET 10. The package carries zero runtime dependencies beyond BCL.
+**Requirements:** .NET 10 or .NET 11. The package carries zero runtime dependencies beyond BCL.
 
 ## License
 
