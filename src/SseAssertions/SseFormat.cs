@@ -20,9 +20,9 @@ public static class SseFormat
     /// Lightweight discriminator that returns <see langword="true"/> when <paramref name="body"/>
     /// has the textual shape of a Server-Sent Events stream: at least one SSE field line (a line
     /// beginning with <c>event:</c>, <c>data:</c>, <c>id:</c>, or <c>retry:</c>) and a blank line, the frame
-    /// separator. Lines may end in LF, CRLF or CR, as the WHATWG specification allows and the parser accepts.
-    /// Returns <see langword="false"/> for arbitrary strings, empty input, or text that contains no SSE field
-    /// markers.
+    /// separator. Lines may end in LF, CRLF or CR, also mixed, as the WHATWG specification allows and the parser
+    /// accepts, and a leading byte order mark is skipped as the parser skips it. Returns <see langword="false"/>
+    /// for arbitrary strings, empty input, or text that contains no SSE field markers.
     /// </summary>
     /// <remarks>
     /// The check is intentionally cheap and forgiving: it does not parse the stream, validate
@@ -37,23 +37,21 @@ public static class SseFormat
     {
         ArgumentNullException.ThrowIfNull(body);
 
-        if (body.Length is 0)
+        // A single leading BOM is skipped, as the parser does, so it cannot hide a field on the first line. The
+        // lines are split at every line ending the specification allows, CRLF as one, so a blank line is found
+        // whichever endings the stream mixes. The last element is the text after the final line ending, which is
+        // no complete line, so an empty one there is no blank line. Field names are case-sensitive ASCII.
+        var text = body.Length > 0 && body[0] is '\uFEFF' ? body[1..] : body;
+        var lines = text.Split(LineEndings, StringSplitOptions.None);
+        var hasField = false;
+        var hasBlankLine = false;
+        for (var i = 0; i < lines.Length; i++)
         {
-            return false;
+            hasField |= StartsWithField(lines[i]);
+            hasBlankLine |= lines[i].Length is 0 && i < lines.Length - 1;
         }
 
-        // SSE frame separator: a blank line ('\n\n', '\r\n\r\n' for CRLF streams, '\r\r' for CR streams). Reject
-        // text that lacks the separator entirely; SSE producers always terminate frames this way.
-        if (body.IndexOf("\n\n", StringComparison.Ordinal) < 0
-            && body.IndexOf("\r\n\r\n", StringComparison.Ordinal) < 0
-            && body.IndexOf("\r\r", StringComparison.Ordinal) < 0)
-        {
-            return false;
-        }
-
-        // At least one SSE field marker must appear at a line start. Scan line-by-line, splitting at every
-        // line ending the specification allows; field names are case-sensitive ASCII.
-        return body.Split(LineEndings, StringSplitOptions.None).Any(static line => StartsWithField(line));
+        return hasField && hasBlankLine;
     }
 
     /// <summary>Gets whether <paramref name="line"/> starts with one of the SSE field markers.</summary>

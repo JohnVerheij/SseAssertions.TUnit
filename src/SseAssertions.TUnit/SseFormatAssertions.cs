@@ -22,9 +22,10 @@ namespace SseAssertions.TUnit;
 public static class SseFormatAssertions
 {
     /// <summary>
-    /// Asserts that the supplied text has the shape of a Server-Sent Events stream: contains at
-    /// least one SSE field marker (<c>event:</c>, <c>data:</c>, <c>id:</c>, or <c>retry:</c>) and
-    /// the frame-separator double newline. The check is intentionally lightweight; use
+    /// Asserts that the supplied text has the shape of a Server-Sent Events stream: a line that starts
+    /// with an SSE field marker (<c>event:</c>, <c>data:</c>, <c>id:</c>, or <c>retry:</c>) and a blank
+    /// line, the frame separator, with lines ending in LF, CRLF or CR (see
+    /// <see cref="SseFormat.LooksLikeServerSentEvents(string)"/>). The check is intentionally lightweight; use
     /// <c>HasSseEvent</c> for per-frame assertions.
     /// </summary>
     /// <param name="body">The text to inspect, as the receiver of the fluent assertion.</param>
@@ -37,7 +38,7 @@ public static class SseFormatAssertions
         return SseFormat.LooksLikeServerSentEvents(body)
             ? AssertionResult.Passed
             : AssertionResult.Failed(
-                "no SSE field marker (event:, data:, id:, retry:) was found before a frame separator (\\n\\n)");
+                "no line started with an SSE field marker (event:, data:, id:, retry:), or no line was blank");
     }
 
     /// <summary>Asserts the first SSE frame parsed from <paramref name="body"/> has
@@ -269,9 +270,9 @@ public static class SseFormatAssertions
                 : string.Concat("\"retry: ", actual.Value.ToString(CultureInfo.InvariantCulture), "\"")));
     }
 
-    /// <summary>Parses the integer millisecond value from a <c>retry:</c> field line. Returns
-    /// <see langword="null"/> when the value is absent or not all-ASCII-digits (per the SSE spec a
-    /// non-numeric <c>retry:</c> value is ignored). <paramref name="line"/> is assumed to be a
+    /// <summary>Parses the integer millisecond value from a <c>retry:</c> field line, by the rule of the parser.
+    /// Returns <see langword="null"/> when the value is absent or not all ASCII digits (per the SSE spec such a
+    /// <c>retry:</c> value is ignored). <paramref name="line"/> is assumed to be a
     /// <c>retry</c> field line as confirmed by <see cref="IsField"/>.</summary>
     /// <param name="line">The <c>retry:</c> field line.</param>
     /// <returns>The parsed millisecond value, or <see langword="null"/> when not a valid integer.</returns>
@@ -289,7 +290,7 @@ public static class SseFormatAssertions
             value = value[1..];
         }
 
-        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var ms) ? ms : null;
+        return SseText.TryParseRetry(value, out var ms) ? ms : null;
     }
 
     /// <summary>Reports whether <paramref name="line"/> is a <c>data:</c> field line carrying a

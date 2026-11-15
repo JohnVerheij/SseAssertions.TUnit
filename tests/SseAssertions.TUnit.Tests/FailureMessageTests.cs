@@ -57,7 +57,7 @@ internal sealed class FailureMessageTests
 
         await Assert.That(message).IsEqualTo(Lines(
             "Expected to have the shape of a Server-Sent Events stream",
-            "but no SSE field marker (event:, data:, id:, retry:) was found before a frame separator (\\n\\n)"));
+            "but no line started with an SSE field marker (event:, data:, id:, retry:), or no line was blank"));
     }
 
     [Test]

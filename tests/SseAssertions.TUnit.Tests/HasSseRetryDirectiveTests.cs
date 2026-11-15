@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -211,9 +212,76 @@ internal sealed class HasSseRetryDirectiveTests
 
         await Assert.That("data: x\nretry:42\n\n").HasSseRetryDirective(42);
         await Assert.That("data: x\r\nretry: 7\r\n\r\n").HasSseRetryDirective(7);
-        await Assert.That(async () => await Assert.That("data: x\nretry: soon\nretryx: 5\nretry\n\n").HasSseRetryDirective())
+        await Assert.That(async () => await Assert.That("data: x\nretry: soon\nretryx: 5\nretry\nretry:\n\n").HasSseRetryDirective())
             .Throws<AssertionException>();
         await Assert.That(async () => await Assert.That(": retry: 5\ndata: x\n\n").HasSseRetryDirective())
             .Throws<AssertionException>();
+    }
+
+    /// <summary>A value with a character other than an ASCII digit is ignored, as the parser ignores it: a trailing
+    /// NUL too, which <c>int.TryParse</c> accepts. The leading directive of <c>HasSseRetryDirectiveFirst</c> is then
+    /// unparseable.</summary>
+    [Test]
+    public async Task RetryValue_WithATrailingNul_IsIgnored(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        const string Body = "retry: 1000\0\n\n";
+
+        await Assert.That(async () => await Assert.That(Body).HasSseRetryDirective()).Throws<AssertionException>();
+        await Assert.That(async () => await Assert.That(Body).HasSseRetryDirective(1000)).Throws<AssertionException>();
+        var ex = await Assert.That(async () => await Assert.That(Body).HasSseRetryDirectiveFirst(1000)).Throws<AssertionException>();
+        await Assert.That(ex!.Message).Contains("unparseable");
+        await Assert.That(SseFrameParser.Parse("retry: 1000\0\ndata: x\n\n")[0].RetryMillis).IsNull();
+    }
+
+    /// <summary>When the token ends the read inside a line, that line is left out: a field is complete only at its
+    /// line break, and <c>retry: 3</c> is what arrived of <c>retry: 3000</c>. Lines that ended before the cut count,
+    /// also one ended by a carriage return whose line feed has not arrived.</summary>
+    [Test]
+    public async Task CanceledRead_LeavesOutTheLineItCut(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await CutAfterAsync("retry: 3", async (stream, token) =>
+        {
+            var ex = await Assert.That(async () => await Assert.That(stream).HasSseRetryDirective(3, token)).Throws<AssertionException>();
+            await Assert.That(ex!.Message).Contains("no retry directive was found");
+        });
+        await CutAfterAsync("retry: 3", async (stream, token) =>
+        {
+            using var response = StubHandler.Sse(stream);
+            await Assert.That(async () => await Assert.That(response).HasSseRetryDirective(cancellationToken: token)).Throws<AssertionException>();
+        });
+        await CutAfterAsync("retry: 3", async (stream, token) =>
+            await Assert.That(async () => await Assert.That(stream).HasSseRetryDirectiveFirst(3, token)).Throws<AssertionException>());
+        await CutAfterAsync("retry: 3", async (stream, token) =>
+        {
+            using var response = StubHandler.Sse(stream);
+            await Assert.That(async () => await Assert.That(response).HasSseRetryDirectiveFirst(cancellationToken: token)).Throws<AssertionException>();
+        });
+
+        await CutAfterAsync("retry: 3000\n\nretry: 5", async (stream, token) => await Assert.That(stream).HasSseRetryDirective(3000, token));
+        await CutAfterAsync("retry: 3000\r", async (stream, token) => await Assert.That(stream).HasSseRetryDirectiveFirst(3000, token));
+    }
+
+    /// <summary>Runs <paramref name="assertion"/> on a stream that delivers <paramref name="sent"/> and whose read the
+    /// token ends while it waits for more.</summary>
+    /// <param name="sent">The text that arrives before the cut.</param>
+    /// <param name="assertion">The assertion, given the stream and the token that ends its read.</param>
+    /// <returns>A task that completes when the assertion has run.</returns>
+    private static async Task CutAfterAsync(string sent, Func<Stream, CancellationToken, Task> assertion)
+    {
+        using var stream = new ScriptedStream();
+        using var cts = new CancellationTokenSource();
+        stream.Send(sent);
+        await Task.WhenAll(CancelOnceWaitingAsync(), assertion(stream, cts.Token));
+
+        // Cancel only once the reader has consumed what was sent and waits for more. This runs first, so the
+        // signal is armed before the read starts.
+        async Task CancelOnceWaitingAsync()
+        {
+            await stream.NextPendingRead();
+            await cts.CancelAsync();
+        }
     }
 }

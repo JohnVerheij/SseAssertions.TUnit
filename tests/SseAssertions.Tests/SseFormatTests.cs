@@ -75,4 +75,42 @@ internal sealed class SseFormatTests
 
         await Assert.That(SseFormat.LooksLikeServerSentEvents(body)).IsTrue();
     }
+
+    /// <summary>A blank line is found whichever line endings the stream mixes: the line after <c>data: 1</c> is
+    /// empty in each of these bodies.</summary>
+    [Test]
+    [Arguments("data: 1\n\r\n")]
+    [Arguments("data: 1\r\n\r")]
+    [Arguments("data: 1\n\r")]
+    [Arguments("data: 1\r\r\n")]
+    public async Task LooksLikeServerSentEvents_BlankLineAfterAnotherLineEnding_ReturnsTrue(string body, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await Assert.That(SseFormat.LooksLikeServerSentEvents(body)).IsTrue();
+    }
+
+    /// <summary>CRLF is one line ending, not a line ending followed by a blank line, and the text after the last line
+    /// ending is no complete line, so none of these bodies has a blank line.</summary>
+    [Test]
+    [Arguments("data: 1\r\n")]
+    [Arguments("data: 1\r\nid: 2\r\n")]
+    [Arguments("data: 1\n")]
+    public async Task LooksLikeServerSentEvents_NoBlankLine_ReturnsFalse(string body, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await Assert.That(SseFormat.LooksLikeServerSentEvents(body)).IsFalse();
+    }
+
+    /// <summary>A leading byte order mark is skipped, as the parser skips it, so it does not hide the field on the
+    /// first line; only one is skipped.</summary>
+    [Test]
+    public async Task LooksLikeServerSentEvents_LeadingByteOrderMark_IsSkipped(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await Assert.That(SseFormat.LooksLikeServerSentEvents("\uFEFFdata: 1\n\n")).IsTrue();
+        await Assert.That(SseFormat.LooksLikeServerSentEvents("\uFEFF\uFEFFdata: 1\n\n")).IsFalse();
+    }
 }

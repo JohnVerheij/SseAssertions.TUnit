@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SseAssertions;
@@ -240,7 +239,8 @@ public static class SseStreamAndHttpAssertions
     /// <param name="stream">The SSE stream.</param>
     /// <param name="millis">The required <c>retry:</c> value in milliseconds, or
     /// <see langword="null"/> to accept any value.</param>
-    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <param name="cancellationToken">Flows to the stream read. When it ends the read, a line it cut off is left
+    /// out: a field is complete only at its line break.</param>
     /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
     [GenerateAssertion(ExpectationMessage = "to contain a retry directive")]
@@ -249,8 +249,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var body = await SseStreamReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirective(body, millis);
     }
 
@@ -263,7 +262,8 @@ public static class SseStreamAndHttpAssertions
     /// <see langword="null"/> to accept any value.</param>
     /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
     /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
-    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <param name="cancellationToken">Flows to the response-body read. When it ends the read, a line it cut off is left
+    /// out: a field is complete only at its line break.</param>
     /// <returns>An assertion that passes when a matching <c>retry:</c> directive is found, or
     /// fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
     /// is on and the header is wrong.</returns>
@@ -282,14 +282,15 @@ public static class SseStreamAndHttpAssertions
             return wrongContentType;
         }
 
-        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        var body = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirective(body, millis);
     }
 
     /// <summary>Asserts the supplied <see cref="Stream"/> sends a <c>retry:</c> directive before
     /// any data-bearing event: the server set the reconnection time before streaming any payload.</summary>
     /// <param name="stream">The SSE stream.</param>
-    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <param name="cancellationToken">Flows to the stream read. When it ends the read, a line it cut off is left
+    /// out: a field is complete only at its line break.</param>
     /// <returns>An assertion that passes when a <c>retry:</c> directive precedes the first data event.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
     [GenerateAssertion(ExpectationMessage = "to send a retry directive before any data")]
@@ -298,8 +299,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var body = await SseStreamReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
     }
 
@@ -308,7 +308,8 @@ public static class SseStreamAndHttpAssertions
     /// <param name="response">The HTTP response carrying the SSE body.</param>
     /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
     /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
-    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <param name="cancellationToken">Flows to the response-body read. When it ends the read, a line it cut off is left
+    /// out: a field is complete only at its line break.</param>
     /// <returns>An assertion that passes when a <c>retry:</c> directive precedes the first data
     /// event, or fails with the unexpected-content-type diagnostic when
     /// <paramref name="strictContentType"/> is on and the header is wrong.</returns>
@@ -326,7 +327,7 @@ public static class SseStreamAndHttpAssertions
             return wrongContentType;
         }
 
-        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        var body = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body);
     }
 
@@ -335,7 +336,8 @@ public static class SseStreamAndHttpAssertions
     /// <paramref name="millis"/>: position and value pinned in a single read.</summary>
     /// <param name="stream">The SSE stream.</param>
     /// <param name="millis">The required <c>retry:</c> value, in milliseconds, of the leading directive.</param>
-    /// <param name="cancellationToken">Flows to the stream read.</param>
+    /// <param name="cancellationToken">Flows to the stream read. When it ends the read, a line it cut off is left
+    /// out: a field is complete only at its line break.</param>
     /// <returns>An assertion that passes when a <c>retry: millis</c> directive precedes the first data event.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <see langword="null"/>.</exception>
     [GenerateAssertion(ExpectationMessage = "to send a retry directive of {millis} ms before any data")]
@@ -344,8 +346,7 @@ public static class SseStreamAndHttpAssertions
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var (body, _, _) = await SseStreamReader.ReadAsync(
-            stream, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        var body = await SseStreamReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
     }
 
@@ -357,7 +358,8 @@ public static class SseStreamAndHttpAssertions
     /// <param name="millis">The required <c>retry:</c> value, in milliseconds, of the leading directive.</param>
     /// <param name="strictContentType">When <see langword="true"/> (the default), the assertion
     /// fails if <c>Content-Type</c>'s media type is not <c>text/event-stream</c>.</param>
-    /// <param name="cancellationToken">Flows to the response-body read.</param>
+    /// <param name="cancellationToken">Flows to the response-body read. When it ends the read, a line it cut off is left
+    /// out: a field is complete only at its line break.</param>
     /// <returns>An assertion that passes when a <c>retry: millis</c> directive precedes the first data
     /// event, or fails with the unexpected-content-type diagnostic when <paramref name="strictContentType"/>
     /// is on and the header is wrong.</returns>
@@ -376,7 +378,7 @@ public static class SseStreamAndHttpAssertions
             return wrongContentType;
         }
 
-        var (body, _, _) = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        var body = await SseStreamReader.ReadResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
         return SseFormatAssertions.EvaluateRetryDirectiveFirst(body, millis);
     }
 

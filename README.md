@@ -260,8 +260,10 @@ ends the observation window after the first event of that type, which bounds
 runs to the end of the body or until the cancellation token ends it. The
 retry-directive assertions read the whole body and look at the `retry:` fields
 themselves, because a `retry:` can sit in a frame without `data:` (which is no
-event) and can come at any point; on a live stream, `SseStream.FirstFrame` gives
-the first frame's `retry:` directly. The `string` receiver stops at the same point, so a body
+event) and can come at any point. When the token ends that read inside a line,
+the line is left out, so `retry: 3` cut from `retry: 3000` is no directive. On a
+live stream, `SseStream.FirstFrame` gives the first frame's `retry:` directly.
+The `string` receiver stops at the same point, so a body
 gives the same verdict on every receiver. Bodies are decoded as UTF-8, as the
 SSE specification requires.
 
