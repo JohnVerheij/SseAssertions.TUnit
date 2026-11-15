@@ -19,15 +19,17 @@ internal static class SseText
             : value.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
 
     /// <summary>Parses a <c>retry:</c> field value. The specification takes the value only when it consists of
-    /// ASCII digits; every character is checked first, because <see cref="int.TryParse(ReadOnlySpan{char}, NumberStyles, IFormatProvider, out int)"/>
-    /// also accepts trailing NUL characters. A value too large for an <see cref="int"/> is ignored too.</summary>
+    /// ASCII digits. Every character is checked first, because
+    /// <see cref="int.TryParse(ReadOnlySpan{char}, NumberStyles, IFormatProvider, out int)"/> also accepts trailing
+    /// NUL characters. A value too large for an <see cref="int"/> is ignored too.</summary>
     /// <param name="value">The field value, after the optional single space.</param>
     /// <param name="parsed">The milliseconds when the value is valid; otherwise 0.</param>
     /// <returns><see langword="true"/> when the value is a valid reconnection time.</returns>
     internal static bool TryParseRetry(ReadOnlySpan<char> value, out int parsed)
     {
-        // An empty value passes the loop, and int.TryParse rejects it.
         parsed = 0;
+
+        // An empty value passes the loop, and int.TryParse rejects it.
         foreach (var c in value)
         {
             if (c is < '0' or > '9')
